@@ -1,0 +1,265 @@
+// room.js — 展示室の3D構築: 配置計算(layoutWalls)・部屋(buildRoom)・作品(addArtwork)・銘板(makePlate)。
+// 生成物はすべて G.galleryRoot 配下に追加し、展示の切替時にまとめて破棄できるようにする。
+
+import * as THREE from "three";
+import { Reflector } from "three/addons/objects/Reflector.js";
+import { G } from "./state.js";
+
+// 正多角形の「閉じた部屋」。各壁は辺の中点(apothem)に内向きで置き、隣と頂点で接して連続する。
+export function layoutWalls(n) {
+  if (G.cfg.layout === "explicit") {
+    return (G.cfg.walls || []).map((w) => ({
+      position: w.position || [0, 1.55, -5],
+      rotationY: (w.rotation && w.rotation[1]) || 0,
+      segWidth: (G.cfg.polygon?.wallWidth ?? 4.2) + (G.cfg.polygon?.gap ?? 0.6),
+      explicit: true,
+    }));
+  }
+  const p = G.cfg.polygon || {};
+  const wallWidth = p.wallWidth ?? 4.2;
+  const gap = p.gap ?? 0.6;
+  const hangY = G.cfg.room?.hangCenter ?? 1.55; // 絵の中心高さ(美術館の基準線)
+  const seg = wallWidth + gap;
+  const apothem = n > 2 ? seg / (2 * Math.tan(Math.PI / n)) : seg;
+  const placements = [];
+  for (let i = 0; i < n; i++) {
+    const a = ((i + 0.5) / n) * Math.PI * 2;
+    placements.push({
+      position: [Math.sin(a) * apothem, hangY, Math.cos(a) * apothem],
+      rotationY: a + Math.PI,
+      segWidth: seg,
+      apothem,
+      maxWidth: wallWidth,
+      angle: a,
+    });
+  }
+  return placements;
+}
+
+export function buildRoom(placements) {
+  const room = G.cfg.room || {};
+  const roomH = room.height || 5.5;
+  const root = G.galleryRoot;
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: room.wallColor || "#1b1e24", roughness: 0.95 });
+  for (const pl of placements) {
+    const seg = pl.segWidth || 4.8;
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(seg + 0.02, roomH), wallMat);
+    wall.position.set(pl.position[0], roomH / 2, pl.position[2]);
+    wall.rotation.y = pl.rotationY;
+    root.add(wall);
+    const base = new THREE.Mesh(
+      new THREE.PlaneGeometry(seg + 0.02, 0.18),
+      new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 1 })
+    );
+    base.position.set(pl.position[0], 0.09, pl.position[2]);
+    base.rotation.y = pl.rotationY;
+    root.add(base);
+  }
+
+  // 床: 既定はマット(美術館同様)。reflectiveFloor:true かつ画質 low 以外なら反射床。
+  const reach = (placements[0]?.apothem || 8) * 2.4 + 6;
+  if (room.reflectiveFloor === true && G.QP.reflector > 0) {
+    const floor = new Reflector(new THREE.CircleGeometry(reach, 64), {
+      color: new THREE.Color(room.floorColor || "#0a0b0d"),
+      textureWidth: G.QP.reflector,
+      textureHeight: G.QP.reflector,
+      clipBias: 0.003,
+    });
+    floor.rotateX(-Math.PI / 2);
+    root.add(floor);
+  } else {
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(reach, 64),
+      new THREE.MeshStandardMaterial({ color: room.floorColor || "#101216", roughness: 0.7 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    root.add(floor);
+  }
+
+  const ceil = new THREE.Mesh(
+    new THREE.CircleGeometry(reach, 64),
+    new THREE.MeshStandardMaterial({ color: room.ceilingColor || "#0c0d11", roughness: 1 })
+  );
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.y = roomH;
+  root.add(ceil);
+
+  if (room.downlights !== false && G.QP.downlights) buildDownlights(placements, roomH);
+  if (room.furniture !== false) buildFurniture(placements, roomH);
+}
+
+function buildDownlights(placements, roomH) {
+  const room = G.cfg.room || {};
+  const n = room.downlightCount ?? 6;
+  const ringR = (placements[0]?.apothem || 8) * 0.42;
+  const lightCol = new THREE.Color(room.lightColor || "#ffe9c4");
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.PI / n;
+    const x = Math.sin(a) * ringR;
+    const z = Math.cos(a) * ringR;
+    const dl = new THREE.SpotLight(lightCol, room.downlightIntensity ?? 90, 0, THREE.MathUtils.degToRad(34), 0.8, 2);
+    dl.position.set(x, roomH - 0.15, z);
+    dl.target.position.set(x, 0, z);
+    G.galleryRoot.add(dl, dl.target);
+    const fix = new THREE.Mesh(
+      new THREE.CircleGeometry(0.16, 24),
+      new THREE.MeshBasicMaterial({ color: lightCol, toneMapped: false })
+    );
+    fix.rotation.x = Math.PI / 2;
+    fix.position.set(x, roomH - 0.12, z);
+    G.galleryRoot.add(fix);
+  }
+}
+
+function buildFurniture(placements, roomH) {
+  const stone = new THREE.MeshStandardMaterial({ color: 0x14161b, roughness: 0.5, metalness: 0.1 });
+  const pedR = 0.7;
+  const pedH = 0.95;
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(pedR, pedR * 1.05, pedH, 32), stone);
+  ped.position.y = pedH / 2;
+  G.galleryRoot.add(ped);
+  const top = new THREE.Mesh(
+    new THREE.CircleGeometry(pedR, 32),
+    new THREE.MeshStandardMaterial({ color: 0x20242b, roughness: 0.3 })
+  );
+  top.rotation.x = -Math.PI / 2;
+  top.position.y = pedH + 0.001;
+  G.galleryRoot.add(top);
+  const ps = new THREE.SpotLight(0xfff2dd, 50, 0, THREE.MathUtils.degToRad(36), 0.7, 2);
+  ps.position.set(0, roomH - 0.5, 0.001);
+  ps.target.position.set(0, pedH, 0);
+  G.galleryRoot.add(ps, ps.target);
+  G.pedestalR = pedR + 0.35;
+
+  const benchMat = new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.8 });
+  const benchR = (placements[0]?.apothem || 8) * 0.5;
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 0.5), benchMat);
+    bench.position.set(Math.sin(a) * benchR, 0.225, Math.cos(a) * benchR);
+    bench.rotation.y = a + Math.PI / 2;
+    G.galleryRoot.add(bench);
+  }
+}
+
+export function addArtwork(wallCfg, resolved, place) {
+  const room = G.cfg.room || {};
+  const roomH = room.height || 5.5;
+  const aspect = resolved.width && resolved.height ? resolved.width / resolved.height : 1;
+
+  // 実寸大の発想で高さ・幅に上限(m)。壁いっぱいにせず余白を残すのが美術館の掛け方。
+  const maxH = room.artMaxHeight ?? 1.9;
+  const maxW = Math.min(room.artMaxWidth ?? 2.4, place.maxWidth ?? (place.segWidth ? place.segWidth - 1.0 : 3));
+  let h = maxH;
+  let w = h * aspect;
+  if (w > maxW) {
+    w = maxW;
+    h = w / aspect;
+  }
+
+  const group = new THREE.Group();
+  group.position.set(place.position[0], place.position[1], place.position[2]);
+  group.rotation.y = place.rotationY;
+  G.galleryRoot.add(group);
+
+  const normal = new THREE.Vector3(-place.position[0], 0, -place.position[2]);
+  if (normal.lengthSq() < 1e-6) normal.set(0, 0, 1);
+  normal.normalize();
+
+  const frame = new THREE.Mesh(
+    new THREE.PlaneGeometry(w + 0.28, h + 0.28),
+    new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 0.6, metalness: 0.2 })
+  );
+  frame.position.z = 0.02;
+  group.add(frame);
+
+  // 絵: まずグレーのプレースホルダ → サムネ読み込み後に差し替え。発色維持のため非ライティング材質。
+  const artMat = new THREE.MeshBasicMaterial({ color: 0x23262d, toneMapped: false });
+  const art = new THREE.Mesh(new THREE.PlaneGeometry(w, h), artMat);
+  art.position.z = 0.04;
+  group.add(art);
+
+  const px = Math.max(512, Math.min(G.cfg.wallTexturePx || 1024, Math.round(Math.max(w, h) * 200)));
+  const loader = new THREE.TextureLoader();
+  loader.setCrossOrigin("anonymous");
+  loader.load(
+    resolved.thumb(px),
+    (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = G.renderer.capabilities.getMaxAnisotropy();
+      artMat.map = tex;
+      artMat.color.setHex(0xffffff);
+      artMat.needsUpdate = true;
+    },
+    undefined,
+    () => console.warn("thumbnail load failed")
+  );
+
+  if (G.cfg.plates !== false && (wallCfg.label || wallCfg.by)) {
+    const plate = makePlate(wallCfg.label, wallCfg.by, w);
+    plate.position.set(0, -h / 2 - 0.22, 0.05);
+    group.add(plate);
+  }
+
+  const center = group.position.clone();
+  if (room.spotlights !== false) {
+    const spot = new THREE.SpotLight(
+      new THREE.Color(room.lightColor || "#ffeccc"),
+      room.spotIntensity ?? 130,
+      0,
+      THREE.MathUtils.degToRad(room.spotAngleDeg ?? 28),
+      room.spotPenumbra ?? 0.7,
+      2
+    );
+    spot.position.copy(center).addScaledVector(normal, 2.2);
+    spot.position.y = roomH - 0.4;
+    spot.target.position.copy(center).setY(center.y - 0.6);
+    G.galleryRoot.add(spot, spot.target);
+  }
+
+  art.userData = { wallCfg, resolved, frame, center, normal, artH: h };
+  G.pickables.push(art);
+}
+
+// 題名/作者をキャンバスに描いて銘板テクスチャに(フォント読み込み不要)。実物大の小さなプレート。
+function makePlate(title, by, artW) {
+  const c = document.createElement("canvas");
+  c.width = 1024;
+  c.height = 220;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#0d0e12";
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(6, 6, c.width - 12, c.height - 12);
+
+  const clip = (s, font, max) => {
+    ctx.font = font;
+    if (ctx.measureText(s).width <= max) return s;
+    let t = s;
+    while (t.length > 1 && ctx.measureText(t + "…").width > max) t = t.slice(0, -1);
+    return t + "…";
+  };
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const titleFont = "600 60px -apple-system, 'Hiragino Sans', sans-serif";
+  ctx.fillStyle = "#eef0f4";
+  ctx.font = titleFont;
+  ctx.fillText(clip(title || "", titleFont, c.width - 80), c.width / 2, by ? 86 : 110);
+  if (by) {
+    const byFont = "400 42px -apple-system, 'Hiragino Sans', sans-serif";
+    ctx.fillStyle = "#9aa3b2";
+    ctx.font = byFont;
+    ctx.fillText(clip(by, byFont, c.width - 80), c.width / 2, 150);
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pw = Math.min(Math.max(artW * 0.42, 0.42), 0.6);
+  const ph = pw * (c.height / c.width);
+  return new THREE.Mesh(
+    new THREE.PlaneGeometry(pw, ph),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })
+  );
+}

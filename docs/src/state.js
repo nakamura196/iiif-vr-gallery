@@ -1,0 +1,64 @@
+// state.js — モジュール間で共有する状態とユーティリティ。
+// 大きな1ファイルを避けるため、可変の参照は単一オブジェクト G に集約して各モジュールで読み書きする。
+
+import * as THREE from "three";
+
+export const G = {
+  cfg: {}, // config.json
+  QP: {}, // 画質プリセット(quality 由来)
+
+  // three.js の中核(setupScene/Controls で生成)
+  scene: null,
+  camera: null,
+  renderer: null,
+  composer: null,
+  controls: null, // OrbitControls
+  walkControls: null, // PointerLockControls
+  raycaster: null,
+  galleryRoot: null, // 展示ごとに作り直す入れ物
+
+  // 作品と当たり判定
+  pickables: [],
+  hovered: null, // いまレイが当たっている作品
+  focused: null, // 拡大対象として選択中の作品(ホバーが外れても保持)
+
+  // 操作モード / 歩行
+  mode: "orbit", // "orbit" | "walk"
+  walkBounds: 8,
+  pedestalR: 0,
+  eyeY: 1.6,
+  move: { f: false, b: false, l: false, r: false },
+  walkVel: new THREE.Vector3(),
+
+  // 自動回転の再開タイマー / クリック前進アニメ / 深ズーム領域
+  idleTimer: null,
+  flight: null,
+  pendingRegion: null,
+
+  osd: null, // OpenSeadragon インスタンス
+
+  pointer: new THREE.Vector2(),
+  clock: new THREE.Clock(),
+};
+
+export const IDLE_MS = 4000;
+
+export const $ = (sel) => document.querySelector(sel);
+
+export function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+export function easeInOutCubic(x) {
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+// 作品の見出し(題名 + 作者)を HTML 片に
+export function labelHtml(wallCfg) {
+  return (
+    `<b>${escapeHtml(wallCfg.label || "")}</b>` +
+    (wallCfg.by ? ` <span class="by">${escapeHtml(wallCfg.by)}</span>` : "")
+  );
+}

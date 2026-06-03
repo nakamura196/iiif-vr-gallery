@@ -1,0 +1,299 @@
+// iiif.js — IIIF Image / Presentation API helpers.
+//
+// 役割:
+//  - 個別の IIIF Image service を解決して、サムネURL・寸法・深ズーム用 tileSource を出す
+//  - IIIF Presentation Manifest / Collection を読み、含まれる画像を「壁ソース」の配列に変換
+//
+// IIIF Image API も Presentation API も v2/v3 の両方を相手にする。
+
+/** 末尾の /info.json や / を落として image service の base id にそろえる */
+export function imageServiceBase(idOrInfo) {
+  return idOrInfo.replace(/\/info\.json$/i, "").replace(/\/$/, "");
+}
+
+/** 多言語ラベル (v3 の {en:[...]}) や v2 の文字列/配列をプレーン文字列に */
+export function plainLabel(label) {
+  if (!label) return "";
+  if (typeof label === "string") return label;
+  if (Array.isArray(label)) return plainLabel(label[0]);
+  if (typeof label === "object") {
+    // v3 language map: 最初の言語の最初の値
+    const vals = label["@value"] ?? Object.values(label)[0];
+    return plainLabel(vals);
+  }
+  return String(label);
+}
+
+/**
+ * 1つの壁ソース(config の source、もしくは manifest 抽出物)を、描画に必要な形へ解決する。
+ * 返り値: { type, infoUrl|url, width, height, thumb(maxPx), osdTileSource }
+ */
+export async function resolveSource(source) {
+  const type = source.type || "iiif";
+
+  if (type === "iiif") {
+    const base = imageServiceBase(source.id || source.infoJson || source.url);
+    const infoUrl = base + "/info.json";
+    const info = await fetch(infoUrl, { mode: "cors" }).then((r) => {
+      if (!r.ok) throw new Error(`info.json ${r.status}: ${infoUrl}`);
+      return r.json();
+    });
+    let width = info.width;
+    let height = info.height;
+
+    // 切り抜き(#xywh 由来)。サムネはその領域だけを要求し、縦横比も領域から取る。
+    let region = null;
+    if (source.region) {
+      const [x, y, w, h] = (Array.isArray(source.region) ? source.region : String(source.region).split(",")).map(Number);
+      if ([x, y, w, h].every((v) => Number.isFinite(v)) && w > 0 && h > 0) {
+        region = { x, y, w, h, imgW: info.width, imgH: info.height };
+        width = w;
+        height = h;
+      }
+    }
+
+    return {
+      type,
+      base,
+      infoUrl,
+      width,
+      height,
+      region,
+      // OpenSeadragon には info.json の URL を渡す(OSD が取得して IIIF と判定する)。
+      // パース済みオブジェクトを直接渡すと版によって IIIF と認識されないため URL 文字列にする。
+      osdTileSource: infoUrl,
+      thumb: (maxPx) =>
+        region
+          ? `${base}/${region.x},${region.y},${region.w},${region.h}/${maxPx},/0/default.jpg`
+          : `${base}/full/${maxPx},/0/default.jpg`,
+    };
+  }
+
+  if (type === "image") {
+    // 単一の通常画像。寸法は読み込み後に拾う。OSD は type:'image' で深ズーム相当。
+    return {
+      type,
+      url: source.url,
+      width: source.width || null,
+      height: source.height || null,
+      osdTileSource: { type: "image", url: source.url },
+      thumb: () => source.url,
+    };
+  }
+
+  if (type === "dzi") {
+    return {
+      type,
+      url: source.url,
+      width: source.width || null,
+      height: source.height || null,
+      osdTileSource: source.url, // .dzi の URL を渡す
+      thumb: () => source.thumb || source.url,
+    };
+  }
+
+  throw new Error(`unknown source type: ${type}`);
+}
+
+/** v2/v3 どちらの Canvas からでも image service の id を取り出す */
+function imageServiceFromCanvas(canvas) {
+  // ---- v2: canvas.images[].resource.service['@id'] ----
+  const imgs = canvas.images || canvas.resources;
+  if (imgs && imgs[0]) {
+    const res = imgs[0].resource || imgs[0];
+    const svc = res.service;
+    const id = serviceId(svc);
+    if (id) return id;
+    // service が無くても resource 自体が画像URLのことがある
+    if (res["@id"] || res.id) return null; // 画像直URLは深ズーム不可なので扱わない
+  }
+  // ---- v3: canvas.items[0].items[0].body.service[0].id ----
+  const ap = canvas.items?.[0]?.items?.[0];
+  const body = ap?.body;
+  if (body) {
+    const id = serviceId(body.service);
+    if (id) return id;
+  }
+  return null;
+}
+
+function serviceId(svc) {
+  if (!svc) return null;
+  const s = Array.isArray(svc) ? svc.find((x) => isImageService(x)) || svc[0] : svc;
+  if (!s) return null;
+  return imageServiceBase(s.id || s["@id"] || "");
+}
+
+function isImageService(s) {
+  const t = s.type || s["@type"] || "";
+  const profile = JSON.stringify(s.profile || "");
+  return /ImageService/i.test(t) || /image\/\d/.test(profile) || !!(s.id || s["@id"]);
+}
+
+export async function fetchJson(url) {
+  const r = await fetch(url, { mode: "cors" });
+  if (!r.ok) throw new Error(`${r.status}: ${url}`);
+  return r.json();
+}
+
+/** ドキュメントの種別を判定: "curation" | "collection" | "manifest" */
+export function detectIiifType(doc) {
+  const t = String(doc["@type"] || doc.type || "").toLowerCase();
+  if (doc.selections || t.includes("curation")) return "curation";
+  if (doc.manifests || doc.collections || t.includes("collection")) return "collection";
+  return "manifest";
+}
+
+/** 任意の IIIF URL を種別判定して壁配列に解決(?u= 用)。curation は selections で絞り込み可。 */
+export async function loadAuto(url, opts = {}) {
+  const doc = await fetchJson(url);
+  const type = detectIiifType(doc);
+  if (type === "curation") return parseCurationDoc(doc, opts);
+  if (type === "collection") return loadCollection(url, opts);
+  return parseManifestDoc(doc, opts);
+}
+
+/** Manifest URL → 壁ソース配列 [{ label, by, source:{type:'iiif', id} }] */
+export async function loadManifest(url, opts = {}) {
+  return parseManifestDoc(await fetchJson(url), opts);
+}
+
+function parseManifestDoc(m, { limit = 24 } = {}) {
+  const manLabel = plainLabel(m.label);
+  // v2: sequences[0].canvases  /  v3: items
+  const canvases = m.sequences?.[0]?.canvases || m.items || [];
+  const walls = [];
+  for (const c of canvases) {
+    const id = imageServiceFromCanvas(c);
+    if (!id) continue;
+    walls.push({
+      label: plainLabel(c.label) || manLabel,
+      by: manLabel,
+      source: { type: "iiif", id },
+    });
+    if (walls.length >= limit) break;
+  }
+  if (!walls.length) throw new Error("manifest から IIIF image service を抽出できませんでした");
+  return walls;
+}
+
+/** Collection URL → 各 Manifest の代表(先頭)画像を1枚ずつ集めて壁ソース配列に */
+export async function loadCollection(url, { limit = 24 } = {}) {
+  const col = await fetch(url, { mode: "cors" }).then((r) => {
+    if (!r.ok) throw new Error(`collection ${r.status}: ${url}`);
+    return r.json();
+  });
+  // v2: manifests[]  /  v3: items[](type:Manifest)
+  const entries =
+    col.manifests ||
+    (col.items || []).filter((x) => /Manifest/i.test(x.type || x["@type"] || ""));
+  const walls = [];
+  for (const e of entries) {
+    if (walls.length >= limit) break;
+    const murl = e["@id"] || e.id;
+    if (!murl) continue;
+    try {
+      const first = (await loadManifest(murl, { limit: 1 }))[0];
+      if (first) {
+        first.label = plainLabel(e.label) || first.label;
+        walls.push(first);
+      }
+    } catch (err) {
+      console.warn("collection: skip manifest", murl, err.message);
+    }
+  }
+  if (!walls.length) throw new Error("collection から画像を抽出できませんでした");
+  return walls;
+}
+
+/**
+ * IIIF Curation (cr:Curation, CODH/IIIF Curation Viewer 形式) URL → 壁ソース配列。
+ * 各メンバーは canvas @id(#xywh で切り抜き) + manifest を持つので、manifest から
+ * image service を引き、切り抜き領域つきの単品画像にする。
+ * opts.selections: 使う selection の添字配列(省略時は全部)。opts.limit: 最大枚数。
+ */
+export async function loadCuration(url, opts = {}) {
+  return parseCurationDoc(await fetchJson(url), opts);
+}
+
+async function parseCurationDoc(cur, { selections = null, limit = 64 } = {}) {
+  const sels = cur.selections || [];
+  const chosen = selections ? selections.map((i) => sels[i]).filter(Boolean) : sels;
+  const members = [];
+  for (const s of chosen) for (const m of s.members || s.canvases || []) members.push(m);
+  const walls = await resolveCurationMembers(members, { limit });
+  if (!walls.length) throw new Error("curation から画像を抽出できませんでした");
+  return walls;
+}
+
+// curation メンバー(canvas@id #xywh + manifest)→ 切り抜き付き壁ソースに解決
+async function resolveCurationMembers(members, { limit = 64 } = {}) {
+  const manifestCache = new Map();
+  const getManifest = (u) => {
+    if (!manifestCache.has(u)) manifestCache.set(u, fetch(u, { mode: "cors" }).then((r) => r.json()));
+    return manifestCache.get(u);
+  };
+  // 異なる manifest を多数含む curation でも速いよう、ユニークな manifest を先に並列取得
+  const uniqueManifests = [...new Set(members.map((m) => m.manifest).filter(Boolean))];
+  await Promise.allSettled(uniqueManifests.map(getManifest));
+
+  const walls = [];
+  for (const m of members) {
+    if (walls.length >= limit) break;
+    try {
+      const { baseId, xywh } = splitCanvasId(m["@id"] || m.id || "");
+      if (!m.manifest) continue;
+      const man = await getManifest(m.manifest);
+      const canvases = man.sequences?.[0]?.canvases || man.items || [];
+      const canvas = canvases.find((c) => (c["@id"] || c.id) === baseId);
+      if (!canvas) continue;
+      const svc = imageServiceFromCanvas(canvas);
+      if (!svc) continue;
+      walls.push({
+        label: plainLabel(m.label),
+        by: cleanDescription(m.description),
+        source: { type: "iiif", id: svc, region: xywh },
+      });
+    } catch (err) {
+      console.warn("curation member skip:", err.message);
+    }
+  }
+  return walls;
+}
+
+function splitCanvasId(cid) {
+  const hash = cid.indexOf("#");
+  const baseId = hash >= 0 ? cid.slice(0, hash) : cid;
+  const frag = hash >= 0 ? cid.slice(hash + 1) : "";
+  const xywh = (frag.match(/xywh=([\d.,]+)/) || [])[1] || null;
+  return { baseId, xywh };
+}
+
+// 入口生成用: curation の各 selection の概要(ラベル・点数・先頭メンバー)を返す
+export function curationSelections(doc) {
+  return (doc.selections || []).map((s, index) => {
+    const members = s.members || s.canvases || [];
+    return { index, label: plainLabel(s.label) || `展示 ${index + 1}`, count: members.length, first: members[0] };
+  });
+}
+
+// 入口カードの表紙: 1メンバーを解決して切り抜きサムネ URL を得る(best-effort)
+export async function memberThumbnail(member, px = 480) {
+  try {
+    const { baseId, xywh } = splitCanvasId(member["@id"] || member.id || "");
+    if (!member.manifest) return null;
+    const man = await fetchJson(member.manifest);
+    const canvases = man.sequences?.[0]?.canvases || man.items || [];
+    const canvas = canvases.find((c) => (c["@id"] || c.id) === baseId);
+    if (!canvas) return null;
+    const base = imageServiceFromCanvas(canvas);
+    if (!base) return null;
+    return xywh ? `${base}/${xywh}/${px},/0/default.jpg` : `${base}/full/${px},/0/default.jpg`;
+  } catch {
+    return null;
+  }
+}
+
+function cleanDescription(d) {
+  return plainLabel(d).replace(/[\s　]*から[\s　]*$/, "").replace(/[\s　]+$/, "").trim();
+}

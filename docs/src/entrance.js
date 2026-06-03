@@ -1,0 +1,109 @@
+// entrance.js — 入口(ロビー)。展示を選び、操作モード(見回す/一人称/三人称)を選んで入室する。
+// 展示は config.exhibitions でも、IIIF Curation の各 selection からでも生成できる。
+
+import { G, $, escapeHtml } from "./state.js";
+import { buildGalleryFromSource, clearGallery } from "./gallery.js";
+import { setMode } from "./controls.js";
+import { curationSelections, memberThumbnail } from "./iiif.js";
+import { t } from "./i18n.js";
+
+const MODES = [
+  { id: "thirdperson", key: "modeThird" },
+  { id: "walk", key: "modeWalk" },
+  { id: "orbit", key: "modeOrbit" },
+];
+let selectedMode = "thirdperson"; // 既定は三人称
+let selectedEx = null; // 選択中の展示
+
+export function setupEntranceUI() {
+  $("#entrance-back").addEventListener("click", showEntrance);
+  $("#entrance-enter").addEventListener("click", () => {
+    if (selectedEx) selectExhibition(selectedEx, selectedMode);
+  });
+}
+
+// config.exhibitions(後方互換: {title, subtitle, cover, source, controlMode})
+export function buildEntrance(exhibitions, startMode) {
+  renderEntrance(exhibitions, startMode);
+}
+
+// IIIF Curation の selection を1展示=1カードに(標準フォーマットだけで入口を構成)
+export function buildEntranceFromCuration(url, doc, startMode) {
+  const exhibitions = curationSelections(doc).map((s) => ({
+    title: s.label,
+    subtitle: `${s.count}点`,
+    coverMember: s.first,
+    source: { curation: url, selections: [s.index] },
+  }));
+  renderEntrance(exhibitions, startMode);
+}
+
+function renderEntrance(exhibitions, startMode) {
+  selectedMode = MODES.some((m) => m.id === startMode) ? startMode : "thirdperson";
+  selectedEx = exhibitions[0] || null;
+
+  // モード選択
+  const modeWrap = $("#entrance-modes");
+  modeWrap.innerHTML = "";
+  for (const m of MODES) {
+    const btn = document.createElement("button");
+    btn.className = "mode-pick" + (m.id === selectedMode ? " on" : "");
+    btn.textContent = t(m.key);
+    btn.addEventListener("click", () => {
+      selectedMode = m.id;
+      [...modeWrap.children].forEach((c) => c.classList.toggle("on", c === btn));
+    });
+    modeWrap.appendChild(btn);
+  }
+
+  // 展示カード(クリックで選択。入室は専用ボタンで)
+  const wrap = $("#entrance-cards");
+  wrap.innerHTML = "";
+  exhibitions.forEach((ex, i) => {
+    const card = document.createElement("button");
+    card.className = "ex-card" + (ex === selectedEx ? " on" : "");
+    if (ex.cover) card.style.backgroundImage = `url("${ex.cover}")`;
+    card.innerHTML =
+      `<div class="ex-meta"><div class="ex-title">${escapeHtml(ex.title || "")}</div>` +
+      (ex.subtitle ? `<div class="ex-sub">${escapeHtml(ex.subtitle)}</div>` : "") +
+      `</div>`;
+    card.addEventListener("click", () => {
+      selectedEx = ex;
+      [...wrap.children].forEach((c, j) => c.classList.toggle("on", j === i));
+    });
+    card.addEventListener("dblclick", () => selectExhibition(ex, selectedMode)); // ダブルクリックで即入室
+    wrap.appendChild(card);
+    if (!ex.cover && ex.coverMember) {
+      memberThumbnail(ex.coverMember, 480).then((u) => {
+        if (u) card.style.backgroundImage = `url("${u}")`;
+      });
+    }
+  });
+  showEntrance();
+}
+
+export function showEntrance() {
+  if (G.mode !== "orbit") setMode("orbit");
+  G.controls.autoRotate = false;
+  clearGallery();
+  $("#loading").style.display = "none";
+  $("#entrance").classList.add("show");
+  $("#entrance-back").classList.remove("show");
+}
+
+export async function selectExhibition(ex, mode) {
+  $("#entrance").classList.remove("show");
+  document.title = ex.title ? `${ex.title}｜${G.cfg.title || "IIIF Gallery"}` : G.cfg.title || "IIIF Gallery";
+  try {
+    await buildGalleryFromSource(ex.source, { resetView: true });
+  } catch (err) {
+    console.error(err);
+    $("#loading").innerHTML = `<div class="err">読み込みに失敗しました:<br>${escapeHtml(err.message)}</div>`;
+    $("#loading").style.display = "flex";
+    return;
+  }
+  $("#entrance-back").classList.add("show"); // 入口経由で来たら「戻る」を出す
+  const m = mode || ex.controlMode || G.cfg.controlMode || "orbit";
+  if (m !== "orbit") setMode(m);
+  else if (G.cfg.autoRotate !== false) G.controls.autoRotate = true;
+}

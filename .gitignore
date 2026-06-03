@@ -1,0 +1,8 @@
+# 第三者(元サイト)の取得物は公開しない
+reference/
+
+# editor / OS
+.DS_Store
+.vscode/
+node_modules/
+*.log
