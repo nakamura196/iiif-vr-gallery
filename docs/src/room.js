@@ -147,7 +147,18 @@ function buildDownlights(placements, roomH) {
 }
 
 function buildFurniture(placements, roomH) {
-  const stone = new THREE.MeshStandardMaterial({ color: 0x14161b, roughness: 0.5, metalness: 0.1 });
+  const room = G.cfg.room || {};
+  const lightCol = new THREE.Color(room.lightColor || "#ffe9c4");
+  // 床の什器が暗闇に沈まないよう、明るめの石材色 + 床に淡い接地グロー。
+  const stone = new THREE.MeshStandardMaterial({ color: 0x3a4049, roughness: 0.7, metalness: 0.05 });
+  const floorGlow = (x, z, size) => {
+    if (room.floorGlow === false) return;
+    const g = glowPlane(size, size, lightCol, 0.22);
+    g.rotation.x = -Math.PI / 2;
+    g.position.set(x, 0.02, z);
+    G.galleryRoot.add(g);
+  };
+
   const pedR = 0.7;
   const pedH = 0.95;
   const ped = new THREE.Mesh(new THREE.CylinderGeometry(pedR, pedR * 1.05, pedH, 32), stone);
@@ -155,21 +166,24 @@ function buildFurniture(placements, roomH) {
   G.galleryRoot.add(ped);
   const top = new THREE.Mesh(
     new THREE.CircleGeometry(pedR, 32),
-    new THREE.MeshStandardMaterial({ color: 0x20242b, roughness: 0.3 })
+    new THREE.MeshStandardMaterial({ color: 0x4a515c, roughness: 0.4 })
   );
   top.rotation.x = -Math.PI / 2;
   top.position.y = pedH + 0.001;
   G.galleryRoot.add(top);
+  floorGlow(0, 0, 3.2);
   G.pedestalR = pedR + 0.35;
 
-  const benchMat = new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.8 });
+  const benchMat = new THREE.MeshStandardMaterial({ color: 0x343a43, roughness: 0.8 });
   const benchR = (placements[0]?.apothem || 8) * 0.5;
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const bx = Math.sin(a) * benchR, bz = Math.cos(a) * benchR;
     const bench = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 0.5), benchMat);
-    bench.position.set(Math.sin(a) * benchR, 0.225, Math.cos(a) * benchR);
+    bench.position.set(bx, 0.225, bz);
     bench.rotation.y = a + Math.PI / 2;
     G.galleryRoot.add(bench);
+    floorGlow(bx, bz, 2.4);
   }
 }
 
