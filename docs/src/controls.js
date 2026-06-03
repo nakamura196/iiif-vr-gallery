@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { G, $, IDLE_MS, easeInOutCubic, labelHtml } from "./state.js";
 import { openViewer, isOverlayOpen } from "./viewer.js";
 import { t } from "./i18n.js";
@@ -115,11 +116,12 @@ function showJoystick(on) {
 function zoomFocused() {
   const art = G.focused;
   if (!art) return;
-  if (G.mode === "walk") {
-    G.walkControls.unlock();
+  if (G.mode === "orbit") {
+    if (!G.flight) startFlight(art); // 見回しモードだけ近づいてから開く
+  } else {
+    // 一人称/三人称: その場で開く(カメラを動かさない=戻った時にずれない)
+    if (G.mode === "walk") G.walkControls.unlock();
     openViewer(art.userData.wallCfg, art.userData.resolved);
-  } else if (!G.flight) {
-    startFlight(art); // 近づいてから openViewer
   }
 }
 
@@ -148,10 +150,13 @@ export function setMode(next) {
     G.controls.autoRotate = false;
     G.controls.enabled = true;
     G.controls.minDistance = 1.5;
-    G.avatar.position.set(0, 0, 0);
+    // 中央の台座と重ならないよう、壁寄りにスポーン
+    const off = Math.min(3, (G.walkBounds || 6) * 0.4);
+    G.avatar.position.set(0, 0, off);
+    G.avatar.rotation.y = Math.PI; // 中心(=作品)側を向く
     G.avatar.visible = true;
-    G.controls.target.set(0, 1.2, 0);
-    G.camera.position.set(0, 2.4, 5);
+    G.controls.target.set(0, 1.1, off);
+    G.camera.position.set(0, 2.2, off + 6.5);
     G.controls.update();
     $("#mode-toggle").textContent = t("toLook");
   } else {
@@ -164,7 +169,7 @@ export function setMode(next) {
   showJoystick(G.mode === "walk" || G.mode === "thirdperson");
 }
 
-// リグなしの簡易アバター(胴+頭)。暗室で視認できるよう少し発光。
+// 三人称アバター。まず簡易フィギュアを置き、リグ付き glTF を読み込めたら差し替える。
 function makeAvatar() {
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0x9fb3c8, roughness: 0.6, emissive: 0x223040, emissiveIntensity: 0.4 });
@@ -172,18 +177,86 @@ function makeAvatar() {
   body.position.y = 0.78;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), mat);
   head.position.y = 1.45;
-  g.add(body, head);
+  const placeholder = new THREE.Group();
+  placeholder.add(body, head);
+  g.add(placeholder);
+  // アバターを常に視認できる追従フィル光(1灯のみ・コスト一定)
+  const fill = new THREE.PointLight(0xfff2e0, 3.5, 8, 2);
+  fill.position.set(0, 2.4, 1.4);
+  g.add(fill);
+  loadCharacter(g, placeholder);
   return g;
+}
+
+function loadCharacter(group, placeholder) {
+  const url = G.cfg.characterModel || "./assets/character.glb";
+  new GLTFLoader().load(
+    url,
+    (gltf) => {
+      const model = gltf.scene;
+      // スキンメッシュの bbox は当てにならないので、固定スケールで配置(Soldier等は原点が足元・実寸大)。
+      model.scale.setScalar(G.cfg.characterScale ?? 1);
+      // PBR(金属)マテリアルは環境マップ無しだと真っ黒になるので、マットにしてフィル光で見えるように
+      model.traverse((o) => {
+        if (!o.isMesh) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) {
+          if (!m) continue;
+          m.metalness = 0;
+          if (m.roughness !== undefined) m.roughness = Math.max(0.7, m.roughness);
+          m.envMapIntensity = 0;
+          // 暗い展示室でも沈まないよう、ごく弱く自己発光(ブルームで膨らまない程度)
+          if (m.emissive && m.color) {
+            m.emissive.copy(m.color);
+            m.emissiveIntensity = 0.06;
+          }
+        }
+      });
+      group.remove(placeholder);
+      group.add(model);
+      // アニメーション(歩行/待機)
+      const clips = gltf.animations || [];
+      const find = (re) => clips.find((c) => re.test(c.name));
+      G.mixer = new THREE.AnimationMixer(model);
+      const idle = find(/idle/i) || clips[0];
+      const walk = find(/walk/i) || find(/run/i) || idle;
+      G.actIdle = idle ? G.mixer.clipAction(idle) : null;
+      G.actWalk = walk ? G.mixer.clipAction(walk) : null;
+      if (G.actIdle) G.actIdle.play();
+      if (G.actWalk && G.actWalk !== G.actIdle) { G.actWalk.play(); G.actWalk.setEffectiveWeight(0); }
+      G.charMoving = false;
+      G.charForwardOffset = G.cfg.characterForwardOffset ?? 0; // モデルの正面補正(rad)
+    },
+    undefined,
+    (err) => console.warn("character model load failed:", err?.message || err)
+  );
+}
+
+// 歩行/待機アニメをクロスフェード
+function setCharAnim(moving) {
+  if (!G.mixer || !G.actWalk || !G.actIdle || G.actWalk === G.actIdle) return;
+  if (moving === G.charMoving) return;
+  G.charMoving = moving;
+  const to = moving ? G.actWalk : G.actIdle;
+  const from = moving ? G.actIdle : G.actWalk;
+  to.enabled = true;
+  to.setEffectiveTimeScale(1);
+  to.crossFadeFrom(from, 0.25, false);
+  to.setEffectiveWeight(1);
 }
 
 const _fwd = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _delta = new THREE.Vector3();
 export function updateThirdPerson(dt) {
-  if (G.mode !== "thirdperson") return;
+  if (G.mode !== "thirdperson") {
+    if (G.mixer) G.mixer.update(dt); // 念のため(非表示時は描画されない)
+    return;
+  }
   const speed = G.cfg.walkSpeed ?? 5.5;
   const dz = (G.move.f ? 1 : 0) - (G.move.b ? 1 : 0);
   const dx = (G.move.r ? 1 : 0) - (G.move.l ? 1 : 0);
+  let moving = false;
   if (dz || dx) {
     G.camera.getWorldDirection(_fwd);
     _fwd.y = 0;
@@ -202,9 +275,12 @@ export function updateThirdPerson(dt) {
       // ターゲットとカメラを同じだけ動かして追従(視点の向きは保つ)
       G.controls.target.x += mx; G.controls.target.z += mz;
       G.camera.position.x += mx; G.camera.position.z += mz;
-      G.avatar.rotation.y = Math.atan2(_delta.x, _delta.z);
+      G.avatar.rotation.y = Math.atan2(_delta.x, _delta.z) + (G.charForwardOffset || 0);
+      moving = Math.hypot(mx, mz) > 1e-5;
     }
   }
+  setCharAnim(moving);
+  if (G.mixer) G.mixer.update(dt);
 }
 
 function onKeyDown(e) {

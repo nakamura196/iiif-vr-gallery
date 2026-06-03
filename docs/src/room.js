@@ -5,6 +5,38 @@ import * as THREE from "three";
 import { Reflector } from "three/addons/objects/Reflector.js";
 import { G } from "./state.js";
 
+// 光だまりを「加算合成の放射状グラデーション板」で擬似的に描く(本物のライトを増やさない=軽い)。
+let _glowTex = null;
+function glowTexture() {
+  if (_glowTex) return _glowTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.5, "rgba(255,255,255,0.45)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  _glowTex = new THREE.CanvasTexture(c);
+  _glowTex.colorSpace = THREE.SRGBColorSpace;
+  return _glowTex;
+}
+function glowPlane(w, h, color, opacity) {
+  return new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({
+      map: glowTexture(),
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      color: new THREE.Color(color),
+      opacity,
+      toneMapped: false,
+    })
+  );
+}
+
 // 正多角形の「閉じた部屋」。各壁は辺の中点(apothem)に内向きで置き、隣と頂点で接して連続する。
 export function layoutWalls(n) {
   if (G.cfg.layout === "explicit") {
@@ -98,10 +130,7 @@ function buildDownlights(placements, roomH) {
     const a = (i / n) * Math.PI * 2 + Math.PI / n;
     const x = Math.sin(a) * ringR;
     const z = Math.cos(a) * ringR;
-    const dl = new THREE.SpotLight(lightCol, room.downlightIntensity ?? 90, 0, THREE.MathUtils.degToRad(34), 0.8, 2);
-    dl.position.set(x, roomH - 0.15, z);
-    dl.target.position.set(x, 0, z);
-    G.galleryRoot.add(dl, dl.target);
+    // 発光する器具(ブルームでにじむ・ライトコスト0)
     const fix = new THREE.Mesh(
       new THREE.CircleGeometry(0.16, 24),
       new THREE.MeshBasicMaterial({ color: lightCol, toneMapped: false })
@@ -109,6 +138,11 @@ function buildDownlights(placements, roomH) {
     fix.rotation.x = Math.PI / 2;
     fix.position.set(x, roomH - 0.12, z);
     G.galleryRoot.add(fix);
+    // 床の光だまり(擬似)
+    const pool = glowPlane(3.2, 3.2, lightCol, 0.28);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(x, 0.03, z);
+    G.galleryRoot.add(pool);
   }
 }
 
@@ -126,10 +160,6 @@ function buildFurniture(placements, roomH) {
   top.rotation.x = -Math.PI / 2;
   top.position.y = pedH + 0.001;
   G.galleryRoot.add(top);
-  const ps = new THREE.SpotLight(0xfff2dd, 50, 0, THREE.MathUtils.degToRad(36), 0.7, 2);
-  ps.position.set(0, roomH - 0.5, 0.001);
-  ps.target.position.set(0, pedH, 0);
-  G.galleryRoot.add(ps, ps.target);
   G.pedestalR = pedR + 0.35;
 
   const benchMat = new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.8 });
@@ -203,19 +233,12 @@ export function addArtwork(wallCfg, resolved, place) {
   }
 
   const center = group.position.clone();
+  // 作品まわりの光だまり(擬似スポット): 壁面に加算合成のグラデーション板を置く。本物の照明は使わない。
   if (room.spotlights !== false) {
-    const spot = new THREE.SpotLight(
-      new THREE.Color(room.lightColor || "#ffeccc"),
-      room.spotIntensity ?? 130,
-      0,
-      THREE.MathUtils.degToRad(room.spotAngleDeg ?? 28),
-      room.spotPenumbra ?? 0.7,
-      2
-    );
-    spot.position.copy(center).addScaledVector(normal, 2.2);
-    spot.position.y = roomH - 0.4;
-    spot.target.position.copy(center).setY(center.y - 0.6);
-    G.galleryRoot.add(spot, spot.target);
+    const glow = glowPlane(w * 2.6, h * 2.3, room.lightColor || "#ffe9c4", room.glowStrength ?? 0.95);
+    glow.position.z = 0.012; // 額(0.02)の背後 → 額の周囲に光が回り込む
+    glow.position.y = 0.1;
+    group.add(glow);
   }
 
   art.userData = { wallCfg, resolved, frame, center, normal, artH: h };

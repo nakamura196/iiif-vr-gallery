@@ -39,5 +39,7 @@ cd docs
 - サンプルの画像は東京大学総合図書館バーチャルミュージアム（ https://utda.github.io/tenjiroom/ ）の
   IIIF を参照しています。各画像の権利は提供機関に帰属します。
 - 着想元の法隆寺ビューアの取得物（解析用）はリポジトリに含めていません（`reference/` は `.gitignore`）。
+- 三人称アバター `docs/assets/character.glb` は three.js examples の Soldier モデル（MIT License, © three.js authors）。
+- 3D は [three.js](https://threejs.org/)（MIT）、深ズームは [OpenSeadragon](https://openseadragon.github.io/)（New BSD）。
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

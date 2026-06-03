@@ -14,6 +14,7 @@ import { fetchJson, detectIiifType } from "./iiif.js";
 import { setupScene, setupPostprocessing } from "./scene.js";
 import { setupControls, setMode, updateWalk, updateThirdPerson, updateFlight, updateHover } from "./controls.js";
 import { setupViewerUI } from "./viewer.js";
+import { setupXR, bindXRInputSources, updateXR } from "./xr.js";
 import { buildGalleryFromSource } from "./gallery.js";
 import { setupEntranceUI, buildEntrance, buildEntranceFromCuration, selectExhibition } from "./entrance.js";
 
@@ -34,10 +35,12 @@ async function init() {
   setupPostprocessing();
   setupViewerUI();
   setupEntranceUI();
+  setupXR();
+  bindXRInputSources();
 
   if (window.__DEBUG) exposeDebug();
 
-  animate();
+  G.renderer.setAnimationLoop(loop); // WebXR は setAnimationLoop 必須
 
   // 入力ソースの決定(優先順): URLクエリ → config.source(IIIF URL) → config.exhibitions(後方互換) → config直下
   const q = new URLSearchParams(location.search);
@@ -90,9 +93,14 @@ function parseSelections(s) {
   return a.length ? a : null;
 }
 
-function animate() {
-  requestAnimationFrame(animate);
+function loop() {
   const dt = Math.min(G.clock.getDelta(), 0.05);
+  if (G.xrPresenting) {
+    updateXR(dt);
+    if (G.mixer) G.mixer.update(dt);
+    G.renderer.render(G.scene, G.camera); // XR 中はポスト処理を使わない
+    return;
+  }
   updateFlight(dt);
   updateWalk(dt);
   updateThirdPerson(dt);
@@ -108,6 +116,7 @@ function exposeDebug() {
   window.__walkBounds = () => G.walkBounds;
   window.__getPickables = () => G.pickables;
   window.__avatar = () => G.avatar;
+  window.__charLoaded = () => !!G.mixer;
   window.__setCam = (p, t) => {
     G.controls.autoRotate = false;
     G.camera.position.set(p[0], p[1], p[2]);
