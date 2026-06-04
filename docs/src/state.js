@@ -23,7 +23,9 @@ export const G = {
   focused: null, // 拡大対象として選択中の作品(ホバーが外れても保持)
 
   // 操作モード / 歩行
-  mode: "orbit", // "orbit" | "walk"
+  mode: "orbit", // "orbit" | "walk" | "thirdperson"
+  charKind: "man", // 三人称アバター "man" | "girl"
+  charLoadedKind: null,
   walkBounds: 8,
   pedestalR: 0,
   eyeY: 1.6,

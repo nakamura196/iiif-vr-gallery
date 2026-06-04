@@ -52,9 +52,25 @@ function renderEntrance(exhibitions, startMode) {
     btn.addEventListener("click", () => {
       selectedMode = m.id;
       [...modeWrap.children].forEach((c) => c.classList.toggle("on", c === btn));
+      updateCharVisibility();
     });
     modeWrap.appendChild(btn);
   }
+
+  // 三人称のキャラ選択(man/girl)
+  const charWrap = $("#entrance-chars");
+  charWrap.innerHTML = "";
+  for (const c of [{ id: "man", key: "charMan" }, { id: "girl", key: "charGirl" }]) {
+    const btn = document.createElement("button");
+    btn.className = "mode-pick" + (c.id === G.charKind ? " on" : "");
+    btn.textContent = t(c.key);
+    btn.addEventListener("click", () => {
+      G.charKind = c.id;
+      [...charWrap.children].forEach((x) => x.classList.toggle("on", x === btn));
+    });
+    charWrap.appendChild(btn);
+  }
+  updateCharVisibility();
 
   // 展示カード(クリックで選択。入室は専用ボタンで)
   const wrap = $("#entrance-cards");
@@ -80,6 +96,12 @@ function renderEntrance(exhibitions, startMode) {
     }
   });
   showEntrance();
+}
+
+// キャラ選択は三人称のときだけ表示
+function updateCharVisibility() {
+  const el = $("#entrance-chars");
+  if (el) el.style.display = selectedMode === "thirdperson" ? "flex" : "none";
 }
 
 export function showEntrance() {

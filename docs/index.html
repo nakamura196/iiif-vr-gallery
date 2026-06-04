@@ -70,7 +70,8 @@
     #entrance.show { display: flex; }
     #entrance h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .06em; text-align: center; }
     #entrance .lead { margin: -14px 0 6px; font-size: 13px; color: #9aa3b2; letter-spacing: .05em; }
-    #entrance-modes { display: flex; gap: 10px; }
+    #entrance-modes, #entrance-chars { display: flex; gap: 10px; }
+    #entrance-chars { margin-top: -8px; }
     .mode-pick { background: rgba(255,255,255,.06); color: #c4cad6; cursor: pointer;
       border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 8px 18px; font-size: 13px; }
     .mode-pick.on { background: #2b6cb0; color: #fff; border-color: #2b6cb0; }
@@ -156,6 +157,7 @@
     <h1 data-i18n="appTitle">IIIF バーチャル美術館</h1>
     <div class="lead" data-i18n="entranceLead"></div>
     <div id="entrance-modes"></div>
+    <div id="entrance-chars"></div>
     <div id="entrance-cards"></div>
     <button id="entrance-enter" data-i18n="enter">入室する →</button>
   </div>

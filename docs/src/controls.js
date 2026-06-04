@@ -4,9 +4,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { G, $, IDLE_MS, easeInOutCubic, labelHtml } from "./state.js";
 import { openViewer, isOverlayOpen } from "./viewer.js";
+import { loadAvatar } from "./avatar.js";
 import { t } from "./i18n.js";
 
 const CENTER = new THREE.Vector2(0, 0);
@@ -150,6 +150,9 @@ export function setMode(next) {
     G.controls.autoRotate = false;
     G.controls.enabled = true;
     G.controls.minDistance = 1.5;
+    // 選択された man/girl をまだ読み込んでいなければ読み込む
+    const kind = G.charKind || "man";
+    if (G.charLoadedKind !== kind) loadAvatar(kind);
     // 中央の台座と重ならないよう、壁寄りにスポーン
     const off = Math.min(3, (G.walkBounds || 6) * 0.4);
     G.avatar.position.set(0, 0, off);
@@ -169,72 +172,24 @@ export function setMode(next) {
   showJoystick(G.mode === "walk" || G.mode === "thirdperson");
 }
 
-// 三人称アバター。まず簡易フィギュアを置き、リグ付き glTF を読み込めたら差し替える。
+// 三人称アバターの入れ物(モデルは loadAvatar で man/girl を後から読み込む)。
 function makeAvatar() {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x9fb3c8, roughness: 0.6, emissive: 0x223040, emissiveIntensity: 0.4 });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.85, 6, 12), mat);
-  body.position.y = 0.78;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), mat);
-  head.position.y = 1.45;
-  const placeholder = new THREE.Group();
-  placeholder.add(body, head);
-  g.add(placeholder);
-  // アバターを常に視認できる追従フィル光(1灯のみ・コスト一定)
+  G.charForwardOffset = G.cfg.characterForwardOffset ?? 0;
+  // VRM(unlit)でも環境次第で暗くならないよう、追従フィル光(1灯・コスト一定)
   const fill = new THREE.PointLight(0xfff2e0, 3.5, 8, 2);
   fill.position.set(0, 2.4, 1.4);
   g.add(fill);
-  loadCharacter(g, placeholder);
   return g;
 }
 
-function loadCharacter(group, placeholder) {
-  const url = G.cfg.characterModel || "./assets/character.glb";
-  new GLTFLoader().load(
-    url,
-    (gltf) => {
-      const model = gltf.scene;
-      // スキンメッシュの bbox は当てにならないので、固定スケールで配置(Soldier等は原点が足元・実寸大)。
-      model.scale.setScalar(G.cfg.characterScale ?? 1);
-      // PBR(金属)マテリアルは環境マップ無しだと真っ黒になるので、マットにしてフィル光で見えるように
-      model.traverse((o) => {
-        if (!o.isMesh) return;
-        const mats = Array.isArray(o.material) ? o.material : [o.material];
-        for (const m of mats) {
-          if (!m) continue;
-          m.metalness = 0;
-          if (m.roughness !== undefined) m.roughness = Math.max(0.7, m.roughness);
-          m.envMapIntensity = 0;
-          // 暗い展示室でも沈まないよう、ごく弱く自己発光(ブルームで膨らまない程度)
-          if (m.emissive && m.color) {
-            m.emissive.copy(m.color);
-            m.emissiveIntensity = 0.06;
-          }
-        }
-      });
-      group.remove(placeholder);
-      group.add(model);
-      // アニメーション(歩行/待機)
-      const clips = gltf.animations || [];
-      const find = (re) => clips.find((c) => re.test(c.name));
-      G.mixer = new THREE.AnimationMixer(model);
-      const idle = find(/idle/i) || clips[0];
-      const walk = find(/walk/i) || find(/run/i) || idle;
-      G.actIdle = idle ? G.mixer.clipAction(idle) : null;
-      G.actWalk = walk ? G.mixer.clipAction(walk) : null;
-      if (G.actIdle) G.actIdle.play();
-      if (G.actWalk && G.actWalk !== G.actIdle) { G.actWalk.play(); G.actWalk.setEffectiveWeight(0); }
-      G.charMoving = false;
-      G.charForwardOffset = G.cfg.characterForwardOffset ?? 0; // モデルの正面補正(rad)
-    },
-    undefined,
-    (err) => console.warn("character model load failed:", err?.message || err)
-  );
-}
-
-// 歩行/待機アニメをクロスフェード
+// 歩行/待機の切替。VRM は idle クリップが無いので timeScale で停止/再生。
 function setCharAnim(moving) {
-  if (!G.mixer || !G.actWalk || !G.actIdle || G.actWalk === G.actIdle) return;
+  if (!G.mixer || !G.actWalk) return;
+  if (!G.actIdle) {
+    G.mixer.timeScale = moving ? 1 : 0; // VRM: 歩行クリップを止める/動かす
+    return;
+  }
   if (moving === G.charMoving) return;
   G.charMoving = moving;
   const to = moving ? G.actWalk : G.actIdle;
