@@ -42,6 +42,7 @@ async function init() {
   setupEntranceUI();
   setupXR();
   bindXRInputSources();
+  setupQualityToggle();
 
   if (window.__DEBUG) exposeDebug();
 
@@ -96,6 +97,25 @@ function parseSelections(s) {
   if (!s) return null;
   const a = s.split(",").map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n));
   return a.length ? a : null;
+}
+
+// ギャラリー内の画質トグル: auto→high→medium→low を巡回(?quality= でリロード)。
+function setupQualityToggle() {
+  const btn = $("#quality-toggle");
+  if (!btn) return;
+  const order = ["auto", "high", "medium", "low"];
+  const cur = (G.cfg.quality || "auto");
+  btn.textContent = "画質 " + cur + (cur === "auto" && G.quality ? "(" + G.quality + ")" : "");
+  btn.addEventListener("click", () => {
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    const q = new URLSearchParams(location.search);
+    if (next === "auto") q.delete("quality"); else q.set("quality", next);
+    location.search = q.toString();
+  });
+  // ギャラリー入室中だけ表示(入口では隠す) — entrance の表示状態で切替
+  const sync = () => btn.classList.toggle("show", !$("#entrance").classList.contains("show"));
+  new MutationObserver(sync).observe($("#entrance"), { attributes: true, attributeFilter: ["class"] });
+  sync();
 }
 
 function loop() {

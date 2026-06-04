@@ -22,6 +22,32 @@ function glowTexture() {
   _glowTex.colorSpace = THREE.SRGBColorSpace;
   return _glowTex;
 }
+// 接地影(低コストなリアリティ): 暗い放射状グラデの板を床に敷く。
+let _shadowTex = null;
+function shadowTexture() {
+  if (_shadowTex) return _shadowTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(0,0,0,0.55)");
+  g.addColorStop(0.6, "rgba(0,0,0,0.28)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  _shadowTex = new THREE.CanvasTexture(c);
+  return _shadowTex;
+}
+export function makeShadow(size, opacity = 1) {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false, opacity, toneMapped: false })
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = 0.015;
+  return m;
+}
+
 function glowPlane(w, h, color, opacity) {
   return new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -183,6 +209,7 @@ function buildFurniture(placements, roomH) {
   top.position.y = pedH + 0.001;
   G.galleryRoot.add(top);
   floorGlow(0, 0, 3.2);
+  const pedShadow = makeShadow(pedR * 2.8, 0.8); pedShadow.position.set(0, 0.016, 0); G.galleryRoot.add(pedShadow);
   G.pedestalR = pedR + 0.35;
   // 当たり箱: 台座(円柱)。横は通れず、上には乗れる。
   G.colliders.push({ kind: "cyl", x: 0, z: 0, r: pedR + 0.25, top: pedH });
@@ -197,6 +224,7 @@ function buildFurniture(placements, roomH) {
     bench.rotation.y = a + Math.PI / 2;
     G.galleryRoot.add(bench);
     floorGlow(bx, bz, 2.4);
+    const bsh = makeShadow(1.9, 0.7); bsh.position.set(bx, 0.016, bz); G.galleryRoot.add(bsh);
     // 当たり箱: ベンチ(回転した箱)。半径方向に margin を足す。
     G.colliders.push({ kind: "obox", x: bx, z: bz, rotY: a + Math.PI / 2, hx: 0.8 + 0.2, hz: 0.25 + 0.2, top: 0.45 });
   }

@@ -7,6 +7,7 @@ import { PointerLockControls } from "three/addons/controls/PointerLockControls.j
 import { G, $, IDLE_MS, easeInOutCubic, labelHtml } from "./state.js";
 import { openViewer, isOverlayOpen } from "./viewer.js";
 import { loadAvatar } from "./avatar.js";
+import { makeShadow } from "./room.js";
 import { t } from "./i18n.js";
 
 const CENTER = new THREE.Vector2(0, 0);
@@ -130,6 +131,7 @@ export function setMode(next) {
   // 退出処理(共通)
   G.walkControls.unlock();
   G.avatar.visible = false;
+  if (G.avatarShadow) G.avatarShadow.visible = false;
   $("#walk-prompt").classList.remove("show");
   $("#crosshair").classList.remove("show");
   if (G.idleTimer) clearTimeout(G.idleTimer);
@@ -182,6 +184,10 @@ function makeAvatar() {
   const fill = new THREE.PointLight(0xfff2e0, 3.5, 8, 2);
   fill.position.set(0, 2.4, 1.4);
   g.add(fill);
+  // 接地影(床に残す。ジャンプで上下しないよう avatar の子にはしない)
+  G.avatarShadow = makeShadow(1.0, 0.5);
+  G.avatarShadow.visible = false;
+  G.scene.add(G.avatarShadow);
   return g;
 }
 
@@ -235,6 +241,12 @@ export function updateThirdPerson(dt) {
   }
   stepVertical(dt, a.x, a.z); // 重力/ジャンプ → 足元の高さ
   a.y = G.feetY;
+  if (G.avatarShadow) { // 影は床に残し、ジャンプで薄く大きく
+    G.avatarShadow.position.set(a.x, 0.02, a.z);
+    const s = 1 + G.feetY * 0.25;
+    G.avatarShadow.scale.set(s, s, 1);
+    G.avatarShadow.material.opacity = Math.max(0.12, 0.5 - G.feetY * 0.12);
+  }
   setCharAnim(moving);
   if (G.mixer) G.mixer.update(dt);
 }

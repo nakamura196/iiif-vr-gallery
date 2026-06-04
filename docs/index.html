@@ -30,9 +30,9 @@
     #hud #hud-text { overflow: hidden; text-overflow: ellipsis; }
     #hud .hint { color: #8d96a8; font-size: 12px; }
     #hud-zoom { pointer-events: auto; cursor: pointer; flex: none;
-      background: #2b6cb0; color: #fff; border: 0; border-radius: 7px;
-      padding: 7px 14px; font-size: 13px; }
-    #hud-zoom:hover { background: #3680cf; }
+      background: #c9a44c; color: #1a1408; border: 0; border-radius: 7px;
+      padding: 7px 15px; font-size: 13px; letter-spacing: .04em; transition: background .15s; }
+    #hud-zoom:hover { background: #dcc079; }
 
     /* 操作ヒント(画面隅) */
     #help { position: fixed; top: 52px; left: 16px; font-size: 12px; color: #8b93a4;
@@ -44,6 +44,12 @@
       border: 1px solid rgba(255,255,255,.12); border-radius: 999px;
       padding: 9px 16px; font-size: 13px; color: #eaecef; cursor: pointer; }
     #mode-toggle:hover { background: rgba(40,44,52,.95); }
+    #quality-toggle { position: fixed; top: 52px; right: 16px; z-index: 20; display: none;
+      background: rgba(20,23,28,.82); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,.12); border-radius: 999px;
+      padding: 6px 13px; font-size: 12px; color: #c4cad6; cursor: pointer; }
+    #quality-toggle.show { display: block; }
+    #quality-toggle:hover { background: rgba(40,44,52,.95); }
 
     /* バーチャルコントローラ(スマホ用ジョイスティック) */
     #joystick { position: fixed; left: 24px; bottom: 24px; width: 124px; height: 124px;
@@ -68,17 +74,21 @@
       align-items: center; justify-content: center; gap: 26px; padding: 40px;
       background: radial-gradient(1200px 800px at 50% 30%, #16181d 0%, #0a0b0d 70%); }
     #entrance.show { display: flex; }
-    #entrance h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .06em; text-align: center; }
-    #entrance .lead { margin: -14px 0 6px; font-size: 13px; color: #9aa3b2; letter-spacing: .05em; }
+    #entrance h1 { margin: 0; font-size: 30px; font-weight: 400; letter-spacing: .18em; text-align: center;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif; color: #f1ece1; }
+    #entrance h1::after { content: ""; display: block; width: 44px; height: 1px; margin: 16px auto 0;
+      background: linear-gradient(90deg, transparent, #c9a44c, transparent); }
+    #entrance .lead { margin: 2px 0 6px; font-size: 12px; color: #9aa3b2; letter-spacing: .14em; }
     #entrance-modes, #entrance-chars { display: flex; gap: 10px; }
     #entrance-chars { margin-top: -8px; }
     .mode-pick { background: rgba(255,255,255,.06); color: #c4cad6; cursor: pointer;
       border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 8px 18px; font-size: 13px; }
-    .mode-pick.on { background: #2b6cb0; color: #fff; border-color: #2b6cb0; }
+    .mode-pick.on { background: rgba(201,164,76,.16); color: #e9d6a6; border-color: #c9a44c; }
     #entrance-cards { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; max-width: 980px; }
-    #entrance-enter { margin-top: 8px; background: #2b6cb0; color: #fff; border: 0; cursor: pointer;
-      border-radius: 999px; padding: 12px 34px; font-size: 15px; font-weight: 700; }
-    #entrance-enter:hover { background: #3680cf; }
+    #entrance-enter { margin-top: 8px; background: #c9a44c; color: #1a1408; border: 0; cursor: pointer;
+      border-radius: 999px; padding: 13px 40px; font-size: 15px; font-weight: 600; letter-spacing: .08em;
+      transition: background .15s, transform .15s; }
+    #entrance-enter:hover { background: #dcc079; transform: translateY(-1px); }
     #entrance-url { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center;
       margin-top: 10px; max-width: 720px; }
     #entrance-url .lbl { font-size: 12px; color: #9aa3b2; width: 100%; text-align: center; }
@@ -92,7 +102,7 @@
       background-size: cover; background-position: center; background-color: #1b1e24;
       transition: transform .15s, border-color .15s; }
     .ex-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,.35); }
-    .ex-card.on { border-color: #2b6cb0; box-shadow: 0 0 0 2px #2b6cb0; }
+    .ex-card.on { border-color: #c9a44c; box-shadow: 0 0 0 1px #c9a44c, 0 8px 28px rgba(0,0,0,.5); }
     .ex-card .ex-meta { position: absolute; inset: auto 0 0 0; text-align: left; padding: 14px 16px;
       background: linear-gradient(to top, rgba(8,9,11,.92), rgba(8,9,11,0)); }
     .ex-card .ex-title { font-size: 17px; font-weight: 700; }
@@ -149,6 +159,7 @@
   <div id="help" data-i18n-html="helpHtml"></div>
 
   <button id="mode-toggle">🚶 歩く</button>
+  <button id="quality-toggle" title="画質 / Quality"></button>
   <button id="entrance-back" data-i18n="back">← 入口</button>
   <div id="crosshair"></div>
   <div id="walk-prompt">

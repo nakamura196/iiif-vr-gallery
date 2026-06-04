@@ -16,9 +16,22 @@ export function qualityPreset() {
     medium: { dpr: 1.5, reflector: 640, bloom: true, downlights: true, env: true, spotMode: "fake" },
     low: { dpr: 1, reflector: 0, bloom: false, downlights: false, env: false, spotMode: "fake" },
   };
-  const p = { ...(presets[G.cfg.quality] || presets.medium) };
+  let q = G.cfg.quality;
+  if (!q || q === "auto") q = autoQuality();
+  G.quality = q;
+  const p = { ...(presets[q] || presets.medium) };
   if (G.cfg.maxPixelRatio) p.dpr = G.cfg.maxPixelRatio;
   return p;
+}
+
+// 端末性能から high/medium/low を推定(quality 未指定 or "auto" のとき)
+function autoQuality() {
+  const mem = navigator.deviceMemory || 4;
+  const cores = navigator.hardwareConcurrency || 4;
+  const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
+  if (mobile || mem <= 4 || cores <= 4) return "low";
+  if (mem >= 8 && cores >= 8) return "high";
+  return "medium";
 }
 
 export function setupScene() {

@@ -3,8 +3,8 @@
   "$comment_howto": "壁の中身は manifest / collection / walls のどれか1つで決める(この優先順)。",
   "title": "My IIIF Gallery",
 
-  "$comment_quality": "描画品質と負荷。high/medium/low。重ければ low(床反射OFF・ブルームOFF・低解像度)。",
-  "quality": "medium",
+  "$comment_quality": "描画品質と負荷。auto=端末性能で自動 / high / medium / low。?quality= でも上書き可。",
+  "quality": "auto",
 
   "$comment_room": "暗い美術館ギャラリーの見た目。広い空間に実寸大の絵を基準線の高さで掛ける。",
   "room": {
