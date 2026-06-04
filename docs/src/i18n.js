@@ -12,6 +12,9 @@ const DICT = {
     modeOrbit: "見回す",
     charMan: "男性",
     charGirl: "女性",
+    urlLabel: "自分の IIIF を見る",
+    urlPlaceholder: "Curation / Collection / Manifest の URL",
+    urlLoad: "読み込む",
     toWalk: "🚶 歩く",
     toLook: "🔄 見回す",
     loading: "読み込み中…",
@@ -28,11 +31,14 @@ const DICT = {
     entranceLead: "Choose a mode and an exhibition, then “Enter”",
     enter: "Enter →",
     back: "← Lobby",
-    modeThird: "Walk (3rd person)",
-    modeWalk: "Walk (1st person)",
+    modeThird: "Third-person (walk)",
+    modeWalk: "First-person (walk)",
     modeOrbit: "Look around",
     charMan: "Man",
     charGirl: "Girl",
+    urlLabel: "View your own IIIF",
+    urlPlaceholder: "Curation / Collection / Manifest URL",
+    urlLoad: "Load",
     toWalk: "🚶 Walk",
     toLook: "🔄 Look",
     loading: "Loading…",
@@ -67,4 +73,5 @@ export function applyI18n() {
   document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
   document.querySelectorAll("[data-i18n-html]").forEach((el) => (el.innerHTML = t(el.dataset.i18nHtml)));
   document.querySelectorAll("[data-i18n-title]").forEach((el) => (el.title = t(el.dataset.i18nTitle)));
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => (el.placeholder = t(el.dataset.i18nPh)));
 }

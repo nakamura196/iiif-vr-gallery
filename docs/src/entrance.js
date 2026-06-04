@@ -17,6 +17,16 @@ let selectedEx = null; // 選択中の展示
 
 export function setupEntranceUI() {
   $("#entrance-back").addEventListener("click", showEntrance);
+  // 独自の IIIF URL を読み込む(?u= 経路を再利用してリロード。lang は維持)
+  $("#entrance-url")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const url = $("#entrance-url-input").value.trim();
+    if (!url) return;
+    const lang = new URLSearchParams(location.search).get("lang");
+    const qs = new URLSearchParams({ u: url });
+    if (lang) qs.set("lang", lang);
+    location.search = "?" + qs.toString();
+  });
   $("#entrance-enter").addEventListener("click", () => {
     if (selectedEx) selectExhibition(selectedEx, selectedMode);
   });

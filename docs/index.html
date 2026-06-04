@@ -79,6 +79,14 @@
     #entrance-enter { margin-top: 8px; background: #2b6cb0; color: #fff; border: 0; cursor: pointer;
       border-radius: 999px; padding: 12px 34px; font-size: 15px; font-weight: 700; }
     #entrance-enter:hover { background: #3680cf; }
+    #entrance-url { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center;
+      margin-top: 10px; max-width: 720px; }
+    #entrance-url .lbl { font-size: 12px; color: #9aa3b2; width: 100%; text-align: center; }
+    #entrance-url-input { flex: 1; min-width: 320px; background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 9px 12px; color: #eaecef; font-size: 13px; }
+    #entrance-url-go { background: rgba(255,255,255,.1); color: #eaecef; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: 9px 16px; font-size: 13px; }
+    #entrance-url-go:hover { background: rgba(255,255,255,.2); }
     .ex-card { position: relative; width: 300px; height: 210px; border-radius: 14px; overflow: hidden;
       border: 1px solid rgba(255,255,255,.12); cursor: pointer; padding: 0; color: #fff;
       background-size: cover; background-position: center; background-color: #1b1e24;
@@ -160,6 +168,11 @@
     <div id="entrance-chars"></div>
     <div id="entrance-cards"></div>
     <button id="entrance-enter" data-i18n="enter">入室する →</button>
+    <form id="entrance-url" autocomplete="off">
+      <span class="lbl" data-i18n="urlLabel"></span>
+      <input id="entrance-url-input" type="url" data-i18n-ph="urlPlaceholder" />
+      <button id="entrance-url-go" type="submit" data-i18n="urlLoad">Load</button>
+    </form>
   </div>
 
   <div id="osd-overlay">

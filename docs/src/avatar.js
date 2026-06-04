@@ -98,6 +98,18 @@ export function loadAvatar(kind) {
       if (isVrm0) scene.rotation.y = Math.PI; // VRM0 は -Z 正面 → +Z へ
       scene.scale.setScalar(G.cfg.characterScale ?? 1);
       scene.userData.isCharModel = true;
+      // VRM(unlit)の白い服がブルーム閾値を超えて発光するのを抑える:
+      // トーンマッピングを効かせ、基色を少し落として高輝度を避ける。
+      const dim = G.cfg.charBrightness ?? 0.82;
+      scene.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (!m) continue;
+          m.toneMapped = true;
+          if (m.color) m.color.multiplyScalar(dim);
+          if (m.emissive) m.emissiveIntensity = Math.min(m.emissiveIntensity ?? 1, 0.0);
+        }
+      });
       // プレースホルダを隠してモデルを出す
       if (G.charPlaceholder) G.charPlaceholder.visible = false;
       G.avatar.add(scene);
