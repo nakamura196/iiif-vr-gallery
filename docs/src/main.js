@@ -25,7 +25,11 @@ init().catch((err) => {
 
 async function init() {
   G.cfg = await fetch("./config.json").then((r) => r.json());
-  const lang = new URLSearchParams(location.search).get("lang") || G.cfg.lang || navigator.language;
+  // URLクエリで一部設定を上書き(デモ/共有用): ?quality=high|medium|low / ?vc=auto|always|off
+  const q0 = new URLSearchParams(location.search);
+  if (q0.get("quality")) G.cfg.quality = q0.get("quality");
+  if (q0.get("vc")) G.cfg.virtualController = q0.get("vc");
+  const lang = q0.get("lang") || G.cfg.lang || navigator.language;
   setLang(lang);
   applyI18n();
   document.title = G.cfg.title || "IIIF Gallery";
