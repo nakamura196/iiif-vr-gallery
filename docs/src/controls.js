@@ -137,11 +137,13 @@ export function setMode(next) {
   G.mode = next;
   G.hovered = null;
   clearFocus();
+  G.feetY = 0; G.vy = 0; G.grounded = true; // 物理リセット
 
   if (G.mode === "walk") {
     G.controls.autoRotate = false;
     G.controls.enabled = false;
-    G.camera.position.set(0, G.eyeY, 0.1);
+    const woff = Math.min(3, (G.walkBounds || 6) * 0.4); // 中央の台座を避けてスポーン
+    G.camera.position.set(0, G.eyeY, woff);
     $("#mode-toggle").textContent = t("toLook");
     $("#walk-prompt").classList.add("show");
     document.body.style.cursor = "";
@@ -211,6 +213,7 @@ export function updateThirdPerson(dt) {
   const speed = G.cfg.walkSpeed ?? 5.5;
   const dz = (G.move.f ? 1 : 0) - (G.move.b ? 1 : 0);
   const dx = (G.move.r ? 1 : 0) - (G.move.l ? 1 : 0);
+  const a = G.avatar.position;
   let moving = false;
   if (dz || dx) {
     G.camera.getWorldDirection(_fwd);
@@ -220,11 +223,7 @@ export function updateThirdPerson(dt) {
     _delta.set(0, 0, 0).addScaledVector(_fwd, dz).addScaledVector(_right, dx);
     if (_delta.lengthSq() > 0) {
       _delta.normalize().multiplyScalar(speed * dt);
-      const a = G.avatar.position;
-      let nx = a.x + _delta.x, nz = a.z + _delta.z;
-      const r = Math.hypot(nx, nz);
-      if (r > G.walkBounds) { nx *= G.walkBounds / r; nz *= G.walkBounds / r; }
-      if (G.pedestalR > 0 && r < G.pedestalR) { const s = G.pedestalR / (r || 1e-6); nx *= s; nz *= s; }
+      const [nx, nz] = resolveMove(a.x, a.z, _delta.x, _delta.z, G.feetY);
       const mx = nx - a.x, mz = nz - a.z;
       a.x = nx; a.z = nz;
       // ターゲットとカメラを同じだけ動かして追従(視点の向きは保つ)
@@ -234,6 +233,8 @@ export function updateThirdPerson(dt) {
       moving = Math.hypot(mx, mz) > 1e-5;
     }
   }
+  stepVertical(dt, a.x, a.z); // 重力/ジャンプ → 足元の高さ
+  a.y = G.feetY;
   setCharAnim(moving);
   if (G.mixer) G.mixer.update(dt);
 }
@@ -250,6 +251,7 @@ function onKeyDown(e) {
     case "KeyS": case "ArrowDown": G.move.b = true; break;
     case "KeyA": case "ArrowLeft": G.move.l = true; break;
     case "KeyD": case "ArrowRight": G.move.r = true; break;
+    case "Space": e.preventDefault(); tryJump(); break; // スペースでジャンプ
   }
 }
 function onKeyUp(e) {
@@ -261,26 +263,67 @@ function onKeyUp(e) {
   }
 }
 
+// ── 簡易物理: 什器の当たり判定 + 重力/ジャンプ ──────────────────
+const GRAVITY = 18, JUMP_SPEED = 6.2;
+
+function footprintContains(c, x, z) {
+  if (c.kind === "cyl") return Math.hypot(x - c.x, z - c.z) <= c.r;
+  const dx = x - c.x, dz = z - c.z;
+  const cs = Math.cos(-c.rotY), sn = Math.sin(-c.rotY);
+  return Math.abs(dx * cs - dz * sn) <= c.hx && Math.abs(dx * sn + dz * cs) <= c.hz;
+}
+// その高さでその位置に入れない(箱の側面)か
+function blockedAt(x, z, feetY) {
+  for (const c of G.colliders) if (footprintContains(c, x, z) && feetY < c.top - 0.05) return true;
+  return false;
+}
+// その位置の地面高さ(箱の上 or 床0)
+function groundAt(x, z) {
+  let g = 0;
+  for (const c of G.colliders) if (footprintContains(c, x, z) && c.top > g) g = c.top;
+  return g;
+}
+// 水平移動を解決(ぶつかったら軸ごとに滑る)。壁(walkBounds)内にも収める。
+function resolveMove(px, pz, dx, dz, feetY) {
+  let nx = px + dx, nz = pz + dz;
+  if (blockedAt(nx, nz, feetY)) {
+    if (!blockedAt(px + dx, pz, feetY)) { nx = px + dx; nz = pz; }
+    else if (!blockedAt(px, pz + dz, feetY)) { nx = px; nz = pz + dz; }
+    else { nx = px; nz = pz; }
+  }
+  const r = Math.hypot(nx, nz);
+  if (r > G.walkBounds) { nx *= G.walkBounds / r; nz *= G.walkBounds / r; }
+  return [nx, nz];
+}
+function stepVertical(dt, x, z) {
+  G.vy -= GRAVITY * dt;
+  G.feetY += G.vy * dt;
+  const g = groundAt(x, z);
+  if (G.feetY <= g) { G.feetY = g; G.vy = 0; G.grounded = true; }
+  else G.grounded = false;
+}
+export function tryJump() {
+  if (G.grounded) { G.vy = JUMP_SPEED; G.grounded = false; }
+}
+
 export function updateWalk(dt) {
   if (G.mode !== "walk" || (!G.walkControls.isLocked && !window.__forceWalk)) return;
   const speed = G.cfg.walkSpeed ?? 5.5;
-  const v = G.walkVel;
-  v.x -= v.x * 10 * dt;
-  v.z -= v.z * 10 * dt;
+  const p = G.camera.position;
   const dz = (G.move.f ? 1 : 0) - (G.move.b ? 1 : 0);
   const dx = (G.move.r ? 1 : 0) - (G.move.l ? 1 : 0);
-  if (dz) v.z += dz * speed * 10 * dt;
-  if (dx) v.x += dx * speed * 10 * dt;
-  G.walkControls.moveRight(v.x * dt);
-  G.walkControls.moveForward(v.z * dt);
-  const p = G.camera.position;
-  p.y = G.eyeY;
-  const r = Math.hypot(p.x, p.z);
-  if (r > G.walkBounds) { p.x *= G.walkBounds / r; p.z *= G.walkBounds / r; }
-  if (G.pedestalR > 0 && r < G.pedestalR) {
-    const s = G.pedestalR / (r || 1e-6);
-    p.x *= s; p.z *= s;
+  if (dz || dx) {
+    G.camera.getWorldDirection(_fwd); _fwd.y = 0; _fwd.normalize();
+    _right.set(_fwd.z, 0, -_fwd.x);
+    _delta.set(0, 0, 0).addScaledVector(_fwd, dz).addScaledVector(_right, dx);
+    if (_delta.lengthSq() > 0) {
+      _delta.normalize().multiplyScalar(speed * dt);
+      const [nx, nz] = resolveMove(p.x, p.z, _delta.x, _delta.z, G.feetY);
+      p.x = nx; p.z = nz;
+    }
   }
+  stepVertical(dt, p.x, p.z);
+  p.y = G.feetY + G.eyeY; // 目線は足元の上
 }
 
 function onPointerMove(e) {

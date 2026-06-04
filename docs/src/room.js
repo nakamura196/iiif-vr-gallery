@@ -72,6 +72,7 @@ export function buildRoom(placements) {
   const room = G.cfg.room || {};
   const roomH = room.height || 5.5;
   const root = G.galleryRoot;
+  G.colliders = []; // 当たり箱をリセット
 
   const wallMat = new THREE.MeshStandardMaterial({ color: room.wallColor || "#1b1e24", roughness: 0.95 });
   for (const pl of placements) {
@@ -183,6 +184,8 @@ function buildFurniture(placements, roomH) {
   G.galleryRoot.add(top);
   floorGlow(0, 0, 3.2);
   G.pedestalR = pedR + 0.35;
+  // 当たり箱: 台座(円柱)。横は通れず、上には乗れる。
+  G.colliders.push({ kind: "cyl", x: 0, z: 0, r: pedR + 0.25, top: pedH });
 
   const benchMat = new THREE.MeshStandardMaterial({ color: 0x343a43, roughness: 0.8 });
   const benchR = (placements[0]?.apothem || 8) * 0.5;
@@ -194,6 +197,8 @@ function buildFurniture(placements, roomH) {
     bench.rotation.y = a + Math.PI / 2;
     G.galleryRoot.add(bench);
     floorGlow(bx, bz, 2.4);
+    // 当たり箱: ベンチ(回転した箱)。半径方向に margin を足す。
+    G.colliders.push({ kind: "obox", x: bx, z: bz, rotY: a + Math.PI / 2, hx: 0.8 + 0.2, hz: 0.25 + 0.2, top: 0.45 });
   }
 }
 

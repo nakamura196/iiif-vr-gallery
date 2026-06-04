@@ -32,6 +32,12 @@ export const G = {
   move: { f: false, b: false, l: false, r: false },
   walkVel: new THREE.Vector3(),
 
+  // 簡易物理(ジャンプ・床/什器との当たり)
+  colliders: [], // 什器の当たり箱 [{kind,x,z,r|hx,hz,rotY,top}]
+  feetY: 0, // 足元の高さ
+  vy: 0, // 鉛直速度
+  grounded: true,
+
   // 自動回転の再開タイマー / クリック前進アニメ / 深ズーム領域
   idleTimer: null,
   flight: null,
