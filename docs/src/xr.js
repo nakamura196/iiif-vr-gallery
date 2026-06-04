@@ -23,10 +23,15 @@ export function setupXR() {
     return c;
   });
 
-  // Enter VR ボタン(WebXR 非対応環境では自動で無効表示)
-  const btn = VRButton.createButton(G.renderer);
-  btn.id = "vr-button";
-  document.body.appendChild(btn);
+  // Enter VR ボタンは WebXR が実際に使える時だけ表示(非対応の "VR NOT SUPPORTED" は出さない)
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    navigator.xr.isSessionSupported("immersive-vr").then((ok) => {
+      if (!ok) return;
+      const btn = VRButton.createButton(G.renderer);
+      btn.id = "vr-button";
+      document.body.appendChild(btn);
+    }).catch(() => {});
+  }
 
   G.renderer.xr.addEventListener("sessionstart", onSessionStart);
   G.renderer.xr.addEventListener("sessionend", onSessionEnd);
