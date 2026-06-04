@@ -160,6 +160,7 @@ export async function loadManifest(url, opts = {}) {
 
 function parseManifestDoc(m, { limit = 24 } = {}) {
   const manLabel = plainLabel(m.label);
+  const meta = extractMeta(m);
   // v2: sequences[0].canvases  /  v3: items
   const canvases = m.sequences?.[0]?.canvases || m.items || [];
   const walls = [];
@@ -170,6 +171,7 @@ function parseManifestDoc(m, { limit = 24 } = {}) {
       label: plainLabel(c.label) || manLabel,
       by: manLabel,
       source: { type: "iiif", id },
+      meta,
     });
     if (walls.length >= limit) break;
   }
@@ -253,6 +255,7 @@ async function resolveCurationMembers(members, { limit = 64 } = {}) {
         label: plainLabel(m.label),
         by: cleanDescription(m.description),
         source: { type: "iiif", id: svc, region: xywh },
+        meta: extractMeta(man),
       });
     } catch (err) {
       console.warn("curation member skip:", err.message);
@@ -292,6 +295,23 @@ export async function memberThumbnail(member, px = 480) {
   } catch {
     return null;
   }
+}
+
+// manifest から 権利表記・帰属・メタデータを取り出す(v2/v3)。表示用パネルに使う。
+export function extractMeta(man) {
+  if (!man || typeof man !== "object") return null;
+  const rs = man.requiredStatement;
+  const required = rs ? plainLabel(rs.value) : plainLabel(man.attribution);
+  const requiredLabel = rs ? plainLabel(rs.label) : "";
+  const rights = typeof man.rights === "string" ? man.rights
+    : typeof man.license === "string" ? man.license
+    : Array.isArray(man.license) ? man.license[0] : "";
+  const metadata = (man.metadata || [])
+    .map((e) => ({ label: plainLabel(e.label), value: plainLabel(e.value) }))
+    .filter((e) => e.label || e.value)
+    .slice(0, 8);
+  const source = man["@id"] || man.id || "";
+  return { required, requiredLabel, rights, metadata, source };
 }
 
 function cleanDescription(d) {

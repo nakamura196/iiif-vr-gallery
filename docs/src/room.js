@@ -235,7 +235,7 @@ export function addArtwork(wallCfg, resolved, place) {
   const roomH = room.height || 5.5;
   const aspect = resolved.width && resolved.height ? resolved.width / resolved.height : 1;
 
-  // 実寸大の発想で高さ・幅に上限(m)。壁いっぱいにせず余白を残すのが美術館の掛け方。
+  // 高さ・幅に上限(m)を設け、壁いっぱいにせず余白を残すのが美術館の掛け方。
   const maxH = room.artMaxHeight ?? 1.9;
   const maxW = Math.min(room.artMaxWidth ?? 2.4, place.maxWidth ?? (place.segWidth ? place.segWidth - 1.0 : 3));
   let h = maxH;

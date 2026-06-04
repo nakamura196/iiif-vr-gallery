@@ -46,7 +46,7 @@ ES Modules と `fetch` のため `file://` 不可。簡易サーバで配信：
 
 - `quality` … `high`/`medium`/`low`（重ければ low。床反射・ブルーム・解像度を調整）
 - `controlMode` … 既定モード（`thirdperson` 既定）/ `walkSpeed`
-- `room` … 色・照明・`hangCenter`（掛け高さ）・`artMaxHeight/Width`（実寸大）・`spotlights`/`downlights`/`furniture`
+- `room` … 色・照明・`hangCenter`（掛け高さ）・`artMaxHeight/Width`（作品の最大寸法）・`spotlights`/`downlights`/`furniture`
 - `bloom` … 発光（重ければ `enabled:false`）
 - `polygon.wallWidth` + `gap` … 1辺の幅＝作品の間隔
 - `lang` … 既定言語（`ja`/`en`）

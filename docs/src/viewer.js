@@ -1,15 +1,50 @@
 // viewer.js — クリックした作品を OpenSeadragon で深ズーム表示するオーバーレイ。
 // IIIF info.json をそのまま tileSource にし、切り抜き領域があればそこに寄せて開く。
 
-import { G, $, IDLE_MS, labelHtml } from "./state.js";
+import { G, $, IDLE_MS, labelHtml, escapeHtml } from "./state.js";
+import { t } from "./i18n.js";
 
 export function isOverlayOpen() {
   return $("#osd-overlay").classList.contains("show");
 }
 
+// 権利・メタデータ パネルを wallCfg.meta から組み立てる
+function renderPanel(wallCfg) {
+  const m = wallCfg.meta;
+  const panel = $("#osd-panel");
+  const info = $("#osd-info");
+  let html = `<h3>${escapeHtml(wallCfg.label || "")}</h3>`;
+  if (wallCfg.by) html += `<div class="by">${escapeHtml(wallCfg.by)}</div>`;
+  let has = false;
+  if (m) {
+    if (m.required) {
+      has = true;
+      html += `<div class="sec"><div class="k">${escapeHtml(m.requiredLabel || t("panelRights"))}</div><div>${escapeHtml(m.required)}</div></div>`;
+    }
+    if (m.rights) {
+      has = true;
+      html += `<div class="sec"><div class="k">${t("panelRights")}</div><div><a href="${escapeHtml(m.rights)}" target="_blank" rel="noopener">${escapeHtml(m.rights)}</a></div></div>`;
+    }
+    if (m.metadata && m.metadata.length) {
+      has = true;
+      html += `<div class="sec"><div class="k">${t("panelMeta")}</div><div class="md">` +
+        m.metadata.map((e) => `<div class="k">${escapeHtml(e.label)}</div><div>${escapeHtml(e.value)}</div>`).join("") +
+        `</div></div>`;
+    }
+    if (m.source) {
+      has = true;
+      html += `<div class="sec"><div class="k">${t("panelSource")}</div><div><a href="${escapeHtml(m.source)}" target="_blank" rel="noopener">${escapeHtml(m.source)}</a></div></div>`;
+    }
+  }
+  panel.innerHTML = html;
+  info.style.display = has ? "" : "none"; // 情報が無ければ ⓘ を隠す
+}
+
 export function openViewer(wallCfg, resolved) {
   $("#osd-overlay").classList.add("show");
   $("#osd-title").innerHTML = labelHtml(wallCfg);
+  renderPanel(wallCfg);
+  $("#osd-panel").classList.remove("show"); // 既定は閉じる(ⓘで開く)
   G.pendingRegion = resolved.region || null;
 
   if (G.osd) {
@@ -64,6 +99,7 @@ export function closeViewer() {
 
 export function setupViewerUI() {
   $("#osd-close").addEventListener("click", closeViewer);
+  $("#osd-info").addEventListener("click", () => $("#osd-panel").classList.toggle("show"));
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && isOverlayOpen()) closeViewer();
   });
