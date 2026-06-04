@@ -239,8 +239,9 @@ export function updateThirdPerson(dt) {
 }
 
 function onKeyDown(e) {
-  if (e.code === "KeyE" && G.mode === "walk" && G.walkControls.isLocked && G.focused) {
-    zoomFocused(); // 歩行中: 照準を合わせた作品を E で拡大
+  if (e.code === "KeyE" && G.focused &&
+      ((G.mode === "walk" && G.walkControls.isLocked) || G.mode === "thirdperson")) {
+    zoomFocused(); // 歩行/三人称: 正面の作品を E で拡大
     return;
   }
   if (G.mode !== "walk" && G.mode !== "thirdperson") return;
@@ -290,12 +291,14 @@ function onPointerMove(e) {
 export function updateHover() {
   if (G.flight) return;
   if (G.mode === "walk" && !G.walkControls.isLocked) return;
-  G.raycaster.setFromCamera(G.mode === "walk" ? CENTER : G.pointer, G.camera);
+  // 見回し=マウス位置 / 歩く・三人称=画面中央(カメラ正面)。移動に追従して対象が切り替わる。
+  const useCenter = G.mode !== "orbit";
+  G.raycaster.setFromCamera(useCenter ? CENTER : G.pointer, G.camera);
   const hit = G.raycaster.intersectObjects(G.pickables, false)[0]?.object || null;
   if (hit !== G.hovered) {
     G.hovered = hit;
     if (hit) setFocus(hit);
-    else if (G.mode === "walk") clearFocus(); // 歩行は照準が外れたら解除
+    else if (useCenter) clearFocus(); // 歩行/三人称は正面に作品が無ければ解除
     // 見回しは外れても focus を保持(🔍ボタンへマウスを動かせるように)
   }
 }
@@ -305,8 +308,9 @@ function setFocus(art) {
   G.focused = art;
   art.userData.frame.material.emissive?.setHex(0x222018);
   const hud = $("#hud");
+  const useE = G.mode === "walk" || G.mode === "thirdperson";
   $("#hud-text").innerHTML =
-    labelHtml(art.userData.wallCfg) + (G.mode === "walk" ? ` <span class="hint">${t("zoomHintE")}</span>` : "");
+    labelHtml(art.userData.wallCfg) + (useE ? ` <span class="hint">${t("zoomHintE")}</span>` : "");
   $("#hud-zoom").style.display = G.mode === "walk" ? "none" : ""; // 歩行は E キー、見回しはボタン
   hud.classList.add("show");
 }
