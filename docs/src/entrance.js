@@ -51,6 +51,7 @@ export function buildEntranceFromCuration(url, doc, startMode) {
 function renderEntrance(exhibitions, startMode) {
   selectedMode = MODES.some((m) => m.id === startMode) ? startMode : "thirdperson";
   selectedEx = exhibitions[0] || null;
+  $("#entrance").classList.toggle("scroll", exhibitions.length > 6); // 展示が多い時は上詰めスクロール
 
   // モード選択
   const modeWrap = $("#entrance-modes");
