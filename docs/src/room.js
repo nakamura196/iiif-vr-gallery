@@ -119,6 +119,16 @@ export function buildRoom(placements) {
 
   if (room.downlights !== false && G.QP.downlights) buildDownlights(placements, roomH);
   if (room.furniture !== false) buildFurniture(placements, roomH);
+
+  // 環境マップを使う場合、暗い雰囲気を保つため反映強度を抑える(質感は上がる)。
+  if (G.envOn) {
+    const intensity = room.envIntensity ?? 0.35;
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => { if (m && "envMapIntensity" in m) m.envMapIntensity = intensity; });
+    });
+  }
 }
 
 function buildDownlights(placements, roomH) {
@@ -247,12 +257,27 @@ export function addArtwork(wallCfg, resolved, place) {
   }
 
   const center = group.position.clone();
-  // 作品まわりの光だまり(擬似スポット): 壁面に加算合成のグラデーション板を置く。本物の照明は使わない。
+  // 作品まわりの照明。quality=high は本物のスポット(立体的で realistic)、それ以外は擬似グロー(軽い)。
   if (room.spotlights !== false) {
-    const glow = glowPlane(w * 2.6, h * 2.3, room.lightColor || "#ffe9c4", room.glowStrength ?? 0.95);
-    glow.position.z = 0.012; // 額(0.02)の背後 → 額の周囲に光が回り込む
-    glow.position.y = 0.1;
-    group.add(glow);
+    if (G.QP.spotMode === "real") {
+      const spot = new THREE.SpotLight(
+        new THREE.Color(room.lightColor || "#ffe9c4"),
+        room.spotIntensity ?? 120,
+        0,
+        THREE.MathUtils.degToRad(room.spotAngleDeg ?? 28),
+        room.spotPenumbra ?? 0.7,
+        2
+      );
+      spot.position.copy(center).addScaledVector(normal, 2.2);
+      spot.position.y = roomH - 0.4;
+      spot.target.position.copy(center).setY(center.y - 0.6);
+      G.galleryRoot.add(spot, spot.target);
+    } else {
+      const glow = glowPlane(w * 2.6, h * 2.3, room.lightColor || "#ffe9c4", room.glowStrength ?? 0.95);
+      glow.position.z = 0.012; // 額(0.02)の背後 → 額の周囲に光が回り込む
+      glow.position.y = 0.1;
+      group.add(glow);
+    }
   }
 
   art.userData = { wallCfg, resolved, frame, center, normal, artH: h };

@@ -5,15 +5,16 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { G, $ } from "./state.js";
 
 // quality: high/medium/low に応じて、重い処理(床反射・ブルーム・解像度・天井灯)を段階調整。
 // 個別の room.* / bloom.enabled で false にすればプリセットより優先して無効化できる。
 export function qualityPreset() {
   const presets = {
-    high: { dpr: 2, reflector: 1024, bloom: true, downlights: true },
-    medium: { dpr: 1.5, reflector: 640, bloom: true, downlights: true },
-    low: { dpr: 1, reflector: 0, bloom: false, downlights: false },
+    high: { dpr: 2, reflector: 1024, bloom: true, downlights: true, env: true, spotMode: "real" },
+    medium: { dpr: 1.5, reflector: 640, bloom: true, downlights: true, env: true, spotMode: "fake" },
+    low: { dpr: 1, reflector: 0, bloom: false, downlights: false, env: false, spotMode: "fake" },
   };
   const p = { ...(presets[G.cfg.quality] || presets.medium) };
   if (G.cfg.maxPixelRatio) p.dpr = G.cfg.maxPixelRatio;
@@ -41,9 +42,17 @@ export function setupScene() {
   G.renderer.toneMappingExposure = room.exposure ?? 1.1;
   $("#scene").appendChild(G.renderer.domElement);
 
-  // 暗い室内: ごく弱い環境光のみ。明かりは作品/天井のスポットで作る。
+  // 暗い室内: 弱い環境光。明かりは作品スポット(+擬似グロー)で作る。
   G.scene.add(new THREE.AmbientLight(0xffffff, room.ambient ?? 0.08));
   G.scene.add(new THREE.HemisphereLight(0x556070, 0x101015, room.hemi ?? 0.12));
+
+  // 環境マップ(IBL): PBRの陰影・質感を底上げしてリアリティを回復(生成は一度きり・低コスト)。
+  // 暗い雰囲気を保つため materials 側の envMapIntensity を低めにする(room.js)。
+  if (G.QP.env) {
+    const pmrem = new THREE.PMREMGenerator(G.renderer);
+    G.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    G.envOn = true;
+  }
 
   G.raycaster = new THREE.Raycaster();
   G.galleryRoot = new THREE.Group();
