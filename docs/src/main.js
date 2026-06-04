@@ -29,6 +29,7 @@ async function init() {
   const q0 = new URLSearchParams(location.search);
   if (q0.get("quality")) G.cfg.quality = q0.get("quality");
   if (q0.get("vc")) G.cfg.virtualController = q0.get("vc");
+  if (q0.get("walkSpeed")) G.cfg.walkSpeed = parseFloat(q0.get("walkSpeed")) || G.cfg.walkSpeed;
   const lang = q0.get("lang") || G.cfg.lang || navigator.language;
   setLang(lang);
   applyI18n();
