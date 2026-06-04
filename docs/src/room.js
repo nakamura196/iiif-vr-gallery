@@ -48,6 +48,23 @@ export function makeShadow(size, opacity = 1) {
   return m;
 }
 
+// 立体的な額縁: 上下左右の4本のバーで縁取る(前方に少し出っ張る)。
+function makeMolding(w, h, color) {
+  const g = new THREE.Group();
+  const bw = 0.085, bd = 0.07, z = 0.055;
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.45 });
+  const bar = (bx, by, sx, sy) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, bd), mat);
+    m.position.set(bx, by, z);
+    g.add(m);
+  };
+  bar(0, h / 2 + bw / 2, w + 2 * bw, bw);  // 上
+  bar(0, -(h / 2 + bw / 2), w + 2 * bw, bw); // 下
+  bar(-(w / 2 + bw / 2), 0, bw, h);          // 左
+  bar(w / 2 + bw / 2, 0, bw, h);             // 右
+  return g;
+}
+
 function glowPlane(w, h, color, opacity) {
   return new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -254,12 +271,16 @@ export function addArtwork(wallCfg, resolved, place) {
   if (normal.lengthSq() < 1e-6) normal.set(0, 0, 1);
   normal.normalize();
 
+  // マット(額の内側の余白) — ホバー時のハイライト対象でもある
   const frame = new THREE.Mesh(
-    new THREE.PlaneGeometry(w + 0.28, h + 0.28),
-    new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 0.6, metalness: 0.2 })
+    new THREE.PlaneGeometry(w + 0.16, h + 0.16),
+    new THREE.MeshStandardMaterial({ color: 0x14110b, roughness: 0.85, metalness: 0.1 })
   );
   frame.position.z = 0.02;
   group.add(frame);
+
+  // 立体的な額縁(モールディング): 4本のバーで縁取り。落ち着いた金縁で美術館らしく。
+  if (room.frames !== false) group.add(makeMolding(w, h, room.frameColor || 0x6e5a2c));
 
   // 絵: まずグレーのプレースホルダ → サムネ読み込み後に差し替え。発色維持のため非ライティング材質。
   const artMat = new THREE.MeshBasicMaterial({ color: 0x23262d, toneMapped: false });

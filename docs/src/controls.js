@@ -11,6 +11,8 @@ import { makeShadow } from "./room.js";
 import { t } from "./i18n.js";
 
 const CENTER = new THREE.Vector2(0, 0);
+const _rayOrig = new THREE.Vector3();
+const _rayDir = new THREE.Vector3();
 
 export function setupControls() {
   const cam = G.cfg.camera || {};
@@ -346,9 +348,21 @@ function onPointerMove(e) {
 export function updateHover() {
   if (G.flight) return;
   if (G.mode === "walk" && !G.walkControls.isLocked) return;
-  // 見回し=マウス位置 / 歩く・三人称=画面中央(カメラ正面)。移動に追従して対象が切り替わる。
+  // 見回し=マウス位置 / 一人称=画面中央 / 三人称=アバター頭からカメラ正面(水平)方向へ。
+  // 三人称はカメラがアバターを見下ろすため画面中央レイは床に当たる。向いた壁の作品を狙えるよう、
+  // アバターの頭の高さ・水平方向にレイを飛ばす(操作性も向上)。移動/旋回に追従して対象が切り替わる。
   const useCenter = G.mode !== "orbit";
-  G.raycaster.setFromCamera(useCenter ? CENTER : G.pointer, G.camera);
+  if (G.mode === "thirdperson" && G.avatar) {
+    _rayOrig.copy(G.avatar.position);
+    _rayOrig.y += G.cfg.room?.hangCenter ?? 1.55; // 作品の中心高さ
+    G.camera.getWorldDirection(_rayDir);
+    _rayDir.y = 0;
+    if (_rayDir.lengthSq() < 1e-6) _rayDir.set(0, 0, -1);
+    _rayDir.normalize();
+    G.raycaster.set(_rayOrig, _rayDir);
+  } else {
+    G.raycaster.setFromCamera(useCenter ? CENTER : G.pointer, G.camera);
+  }
   const hit = G.raycaster.intersectObjects(G.pickables, false)[0]?.object || null;
   if (hit !== G.hovered) {
     G.hovered = hit;
