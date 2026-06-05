@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- ============ SEO / 基本メタ ============ -->
-  <title>IIIF VR Gallery — IIIF を 3D 仮想美術館で歩いて鑑賞</title>
+  <title>IIIF VR Gallery — どんな IIIF も 3D 仮想美術館で歩いて鑑賞・超高精細ズーム</title>
   <meta name="description" content="任意の IIIF（Curation / Collection / Manifest）を 3D の仮想美術館として歩いて鑑賞し、各作品を IIIF タイルで超高精細にズームできるビューア。世界中の所蔵機関のコレクションを、誰のものでも 3D 空間で楽しめます。" />
   <meta name="keywords" content="IIIF, VR, 3D, 仮想美術館, バーチャル美術館, ギャラリー, OpenSeadragon, deep zoom, ディープズーム, デジタルアーカイブ, WebXR, virtual museum, three.js" />
   <meta name="author" content="Satoru Nakamura" />
@@ -28,8 +28,8 @@
   <!-- ============ Open Graph (Facebook / LINE / Slack / Discord 等) ============ -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="IIIF VR Gallery" />
-  <meta property="og:title" content="IIIF VR Gallery — IIIF を 3D 仮想美術館で歩いて鑑賞" />
-  <meta property="og:description" content="任意の IIIF を 3D の仮想美術館として歩いて鑑賞し、各作品を IIIF タイルで超高精細にズーム。世界中のコレクションを 3D 空間で。" />
+  <meta property="og:title" content="IIIF VR Gallery — どんな IIIF も 3D 仮想美術館で歩いて鑑賞・超高精細ズーム" />
+  <meta property="og:description" content="任意の IIIF（Curation / Collection / Manifest）を 3D の仮想美術館として歩いて鑑賞し、各作品を IIIF タイルで超高精細にズーム。世界中の所蔵機関のコレクションを、誰のものでも 3D 空間で自由に楽しめます。" />
   <meta property="og:url" content="https://nakamura196.github.io/iiif-vr-gallery/" />
   <meta property="og:image" content="https://nakamura196.github.io/iiif-vr-gallery/og-image.png" />
   <meta property="og:image:type" content="image/png" />
@@ -41,8 +41,8 @@
 
   <!-- ============ Twitter / X Card ============ -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="IIIF VR Gallery — IIIF を 3D 仮想美術館で歩いて鑑賞" />
-  <meta name="twitter:description" content="任意の IIIF を 3D の仮想美術館として歩いて鑑賞し、各作品を超高精細にズーム。" />
+  <meta name="twitter:title" content="IIIF VR Gallery — どんな IIIF も 3D 仮想美術館で歩いて鑑賞・超高精細ズーム" />
+  <meta name="twitter:description" content="任意の IIIF（Curation / Collection / Manifest）を 3D の仮想美術館として歩いて鑑賞し、各作品を IIIF タイルで超高精細にズーム。世界中の所蔵機関のコレクションを、誰のものでも 3D 空間で自由に楽しめます。" />
   <meta name="twitter:image" content="https://nakamura196.github.io/iiif-vr-gallery/og-image.png" />
   <meta name="twitter:image:alt" content="IIIF VR Gallery のキービジュアル" />
 
@@ -165,6 +165,22 @@
     #entrance-url-go { background: rgba(255,255,255,.1); color: #eaecef; cursor: pointer;
       border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: 9px 16px; font-size: 13px; }
     #entrance-url-go:hover { background: rgba(255,255,255,.2); }
+    /* 使い方動画ボタン */
+    #entrance-tut { margin-top: 4px; background: transparent; color: #c9a44c; cursor: pointer;
+      border: 1px solid rgba(201,164,76,.45); border-radius: 999px; padding: 8px 18px; font-size: 12px;
+      letter-spacing: .08em; transition: background .15s, color .15s, border-color .15s; }
+    #entrance-tut:hover { background: rgba(201,164,76,.12); color: #f4efe3; border-color: #c9a44c; }
+    /* 使い方動画モーダル */
+    #tut-modal { position: fixed; inset: 0; z-index: 120; display: none; align-items: center;
+      justify-content: center; padding: 4vmin; background: rgba(6,7,9,.86); backdrop-filter: blur(6px); }
+    #tut-modal.show { display: flex; }
+    #tut-frame { width: min(1100px, 94vw); aspect-ratio: 16 / 9; max-height: 88vh; border-radius: 12px;
+      overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.6); border: 1px solid rgba(201,164,76,.25); }
+    #tut-embed, #tut-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+    #tut-close { position: absolute; top: 20px; right: 22px; width: 42px; height: 42px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.18); background: rgba(12,13,16,.7); color: #eaecef; font-size: 22px;
+      line-height: 1; cursor: pointer; }
+    #tut-close:hover { background: rgba(40,44,52,.9); }
     .ex-card { position: relative; width: 300px; height: 210px; border-radius: 14px; overflow: hidden;
       border: 1px solid rgba(255,255,255,.12); cursor: pointer; padding: 0; color: #fff;
       background-size: cover; background-position: center; background-color: #1b1e24;
@@ -268,6 +284,13 @@
       <input id="entrance-url-input" type="url" data-i18n-ph="urlPlaceholder" />
       <button id="entrance-url-go" type="submit" data-i18n="urlLoad">Load</button>
     </form>
+    <button id="entrance-tut" type="button" hidden data-i18n="tutWatch">▶ 使い方を見る</button>
+  </div>
+
+  <!-- 使い方動画(YouTube埋め込み)モーダル -->
+  <div id="tut-modal">
+    <button id="tut-close" title="閉じる (Esc)">×</button>
+    <div id="tut-frame"><div id="tut-embed"></div></div>
   </div>
 
   <div id="osd-overlay">

@@ -30,6 +30,32 @@ export function setupEntranceUI() {
   $("#entrance-enter").addEventListener("click", () => {
     if (selectedEx) selectExhibition(selectedEx, selectedMode);
   });
+  setupTutorial();
+}
+
+// 使い方動画(YouTube埋め込み)モーダル。config.tutorialVideoId があるときだけボタンを出す。
+function setupTutorial() {
+  const vid = G.cfg.tutorialVideoId;
+  const btn = $("#entrance-tut");
+  if (!vid || !btn) return;
+  btn.hidden = false;
+  const open = () => {
+    // 開いた時だけ iframe を生成(閉じたら破棄して再生を止める)
+    $("#tut-embed").innerHTML =
+      `<iframe src="https://www.youtube.com/embed/${vid}?rel=0&autoplay=1" ` +
+      `title="tutorial" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>`;
+    $("#tut-modal").classList.add("show");
+  };
+  const close = () => {
+    $("#tut-modal").classList.remove("show");
+    $("#tut-embed").innerHTML = "";
+  };
+  btn.addEventListener("click", open);
+  $("#tut-close").addEventListener("click", close);
+  $("#tut-modal").addEventListener("click", (e) => { if (e.target.id === "tut-modal") close(); });
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("#tut-modal").classList.contains("show")) close();
+  });
 }
 
 // config.exhibitions(後方互換: {title, subtitle, cover, source, controlMode})

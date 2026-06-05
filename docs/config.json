@@ -1,7 +1,10 @@
 {
   "$comment": "==== 3D IIIF Gallery 設定 ===========================================",
   "$comment_howto": "壁の中身は manifest / collection / walls のどれか1つで決める(この優先順)。",
-  "title": "IIIF VR Gallery — IIIF を 3D 仮想美術館で歩いて鑑賞",
+  "title": "IIIF VR Gallery — どんな IIIF も 3D 仮想美術館で歩いて鑑賞・超高精細ズーム",
+
+  "$comment_tutorial": "ロビーに「使い方を見る」ボタンを出し、この YouTube 動画を埋め込む(空なら非表示)。",
+  "tutorialVideoId": "JMBn4cuI-Yw",
 
   "$comment_quality": "描画品質と負荷。auto=端末性能で自動 / high / medium / low。?quality= でも上書き可。",
   "quality": "auto",

@@ -39,5 +39,12 @@
           font-size="34" font-weight="400" fill="#cfd4de">IIIF を 3D 仮想美術館で歩いて鑑賞</text>
     <text x="0" y="150" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans CJK JP',sans-serif"
           font-size="25" font-weight="400" fill="#9aa3b2">Walk any IIIF collection in 3D · deep-zoom each work</text>
+    <!-- Call to action -->
+    <g transform="translate(2 198)">
+      <rect x="0" y="0" width="290" height="60" rx="30" fill="url(#gold)"/>
+      <text x="145" y="39" text-anchor="middle"
+            font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans CJK JP',sans-serif"
+            font-size="26" font-weight="700" fill="#1a1408">入室する　Enter →</text>
+    </g>
   </g>
 </svg>
