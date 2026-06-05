@@ -6,6 +6,9 @@
   "$comment_tutorial": "ロビーに「使い方を見る」ボタンを出し、この YouTube 動画を埋め込む(空なら非表示)。",
   "tutorialVideoId": "JMBn4cuI-Yw",
 
+  "$comment_example": "「自分の IIIF を見る」フォーム下の例ボタンが入力する URL(空なら非表示)。",
+  "exampleIiifUrl": "https://iiif.io/api/cookbook/recipe/0032-collection/collection.json",
+
   "$comment_quality": "描画品質と負荷。auto=端末性能で自動 / high / medium / low。?quality= でも上書き可。",
   "quality": "auto",
 

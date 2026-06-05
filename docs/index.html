@@ -135,7 +135,7 @@
 
     /* 入口(ロビー): 展示を選ぶ */
     #entrance { position: fixed; inset: 0; z-index: 30; display: none; flex-direction: column;
-      align-items: center; justify-content: center; gap: 26px; padding: 40px;
+      align-items: center; justify-content: safe center; gap: 26px; padding: 40px;
       overflow-y: auto; -webkit-overflow-scrolling: touch;
       background: radial-gradient(1200px 800px at 50% 30%, #16181d 0%, #0a0b0d 70%); }
     #entrance.show { display: flex; }
@@ -165,6 +165,10 @@
     #entrance-url-go { background: rgba(255,255,255,.1); color: #eaecef; cursor: pointer;
       border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: 9px 16px; font-size: 13px; }
     #entrance-url-go:hover { background: rgba(255,255,255,.2); }
+    #entrance-url-example { margin-top: 8px; background: none; border: 0; cursor: pointer;
+      color: #9aa3b2; font-size: 12px; letter-spacing: .04em; text-decoration: underline;
+      text-underline-offset: 3px; transition: color .15s; }
+    #entrance-url-example:hover { color: #d8bd78; }
     /* 使い方動画カード(サムネ + 再生ボタン) */
     #entrance-tut { position: relative; margin-top: 14px; width: 360px; max-width: 86vw; aspect-ratio: 16 / 9;
       flex: none; padding: 0; cursor: pointer; overflow: hidden; border-radius: 12px; color: #fff;
@@ -284,6 +288,7 @@
   <div id="entrance">
     <h1 data-i18n="appTitle">IIIF バーチャル美術館</h1>
     <div class="lead" data-i18n="entranceLead"></div>
+    <button id="entrance-tut" type="button" hidden aria-label="tutorial"></button>
     <div id="entrance-modes"></div>
     <div id="entrance-chars"></div>
     <div id="entrance-cards"></div>
@@ -293,7 +298,7 @@
       <input id="entrance-url-input" type="url" data-i18n-ph="urlPlaceholder" />
       <button id="entrance-url-go" type="submit" data-i18n="urlLoad">Load</button>
     </form>
-    <button id="entrance-tut" type="button" hidden aria-label="tutorial"></button>
+    <button id="entrance-url-example" type="button" hidden data-i18n="urlExample"></button>
   </div>
 
   <!-- 使い方動画(YouTube埋め込み)モーダル -->

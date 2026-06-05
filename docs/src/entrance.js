@@ -30,6 +30,17 @@ export function setupEntranceUI() {
   $("#entrance-enter").addEventListener("click", () => {
     if (selectedEx) selectExhibition(selectedEx, selectedMode);
   });
+  // 「例」ボタン: クリックで URL 入力欄にサンプル(Cookbook 等)を流し込む(送信はしない)
+  const exUrl = G.cfg.exampleIiifUrl;
+  const exBtn = $("#entrance-url-example");
+  if (exUrl && exBtn) {
+    exBtn.hidden = false;
+    exBtn.addEventListener("click", () => {
+      const input = $("#entrance-url-input");
+      input.value = exUrl;
+      input.focus();
+    });
+  }
   setupTutorial();
 }
 
