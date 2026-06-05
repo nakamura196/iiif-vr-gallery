@@ -13,6 +13,7 @@ import { t } from "./i18n.js";
 const CENTER = new THREE.Vector2(0, 0);
 const _rayOrig = new THREE.Vector3();
 const _rayDir = new THREE.Vector3();
+const CAM_FOLLOW = 3.0; // 三人称: カメラがアバター背後へ回り込む速さ(大きいほど速い)
 
 export function setupControls() {
   const cam = G.cfg.camera || {};
@@ -239,6 +240,18 @@ export function updateThirdPerson(dt) {
       G.camera.position.x += mx; G.camera.position.z += mz;
       G.avatar.rotation.y = Math.atan2(_delta.x, _delta.z) + (G.charForwardOffset || 0);
       moving = Math.hypot(mx, mz) > 1e-5;
+      // カメラをアバターの背後へ滑らかに回り込ませる(常に背中が見え、A/Dが画面の左右と一致)。
+      // 前後成分があるときだけ。純粋な横歩き(dz=0)では視界を振らない。
+      if (dz) {
+        const fx = Math.sin(G.avatar.rotation.y), fz = Math.cos(G.avatar.rotation.y); // アバター前方
+        const tx = G.controls.target.x, tz = G.controls.target.z;
+        const cdx = G.camera.position.x - tx, cdz = G.camera.position.z - tz;
+        const dist = Math.hypot(cdx, cdz) || 6.5; // 現在の距離を保つ
+        const desX = tx - fx * dist, desZ = tz - fz * dist; // 背後の位置
+        const k = Math.min(1, dt * CAM_FOLLOW);
+        G.camera.position.x += (desX - G.camera.position.x) * k;
+        G.camera.position.z += (desZ - G.camera.position.z) * k;
+      }
     }
   }
   stepVertical(dt, a.x, a.z); // 重力/ジャンプ → 足元の高さ
