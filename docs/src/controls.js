@@ -228,7 +228,7 @@ export function updateThirdPerson(dt) {
     G.camera.getWorldDirection(_fwd);
     _fwd.y = 0;
     _fwd.normalize();
-    _right.set(_fwd.z, 0, -_fwd.x); // 右方向
+    _right.set(-_fwd.z, 0, _fwd.x); // 右方向(= forward × up)。カメラが-Z向きで画面右=+X
     _delta.set(0, 0, 0).addScaledVector(_fwd, dz).addScaledVector(_right, dx);
     if (_delta.lengthSq() > 0) {
       _delta.normalize().multiplyScalar(speed * dt);
@@ -341,7 +341,7 @@ export function updateWalk(dt) {
   const dx = (G.move.r ? 1 : 0) - (G.move.l ? 1 : 0);
   if (dz || dx) {
     G.camera.getWorldDirection(_fwd); _fwd.y = 0; _fwd.normalize();
-    _right.set(_fwd.z, 0, -_fwd.x);
+    _right.set(-_fwd.z, 0, _fwd.x); // 右方向(= forward × up)
     _delta.set(0, 0, 0).addScaledVector(_fwd, dz).addScaledVector(_right, dx);
     if (_delta.lengthSq() > 0) {
       _delta.normalize().multiplyScalar(speed * dt);
