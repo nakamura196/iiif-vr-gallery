@@ -165,11 +165,20 @@
     #entrance-url-go { background: rgba(255,255,255,.1); color: #eaecef; cursor: pointer;
       border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: 9px 16px; font-size: 13px; }
     #entrance-url-go:hover { background: rgba(255,255,255,.2); }
-    /* 使い方動画ボタン */
-    #entrance-tut { margin-top: 4px; background: transparent; color: #c9a44c; cursor: pointer;
-      border: 1px solid rgba(201,164,76,.45); border-radius: 999px; padding: 8px 18px; font-size: 12px;
-      letter-spacing: .08em; transition: background .15s, color .15s, border-color .15s; }
-    #entrance-tut:hover { background: rgba(201,164,76,.12); color: #f4efe3; border-color: #c9a44c; }
+    /* 使い方動画カード(サムネ + 再生ボタン) */
+    #entrance-tut { position: relative; margin-top: 14px; width: 360px; max-width: 86vw; aspect-ratio: 16 / 9;
+      flex: none; padding: 0; cursor: pointer; overflow: hidden; border-radius: 12px; color: #fff;
+      border: 1px solid rgba(201,164,76,.35); background-size: cover; background-position: center;
+      box-shadow: 0 8px 28px rgba(0,0,0,.45); transition: transform .15s, border-color .15s; }
+    #entrance-tut:hover { transform: translateY(-2px); border-color: #c9a44c; }
+    #entrance-tut::after { content: ""; position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.6), rgba(0,0,0,.04) 55%); }
+    #entrance-tut .play { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 2;
+      width: 56px; height: 56px; border-radius: 50%; background: rgba(201,164,76,.94); color: #1a1408;
+      display: flex; align-items: center; justify-content: center; font-size: 21px; padding-left: 3px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+    #entrance-tut .cap { position: absolute; left: 13px; bottom: 10px; z-index: 2; font-size: 12.5px;
+      letter-spacing: .06em; color: #f4efe3; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
     /* 使い方動画モーダル */
     #tut-modal { position: fixed; inset: 0; z-index: 120; display: none; align-items: center;
       justify-content: center; padding: 4vmin; background: rgba(6,7,9,.86); backdrop-filter: blur(6px); }
@@ -284,7 +293,7 @@
       <input id="entrance-url-input" type="url" data-i18n-ph="urlPlaceholder" />
       <button id="entrance-url-go" type="submit" data-i18n="urlLoad">Load</button>
     </form>
-    <button id="entrance-tut" type="button" hidden data-i18n="tutWatch">▶ 使い方を見る</button>
+    <button id="entrance-tut" type="button" hidden aria-label="tutorial"></button>
   </div>
 
   <!-- 使い方動画(YouTube埋め込み)モーダル -->

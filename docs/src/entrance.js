@@ -39,6 +39,9 @@ function setupTutorial() {
   const btn = $("#entrance-tut");
   if (!vid || !btn) return;
   btn.hidden = false;
+  // サムネ + 再生ボタンの動画カードにする(視認性を上げ、再生=YouTube再生回数にカウント)
+  btn.style.backgroundImage = `url("https://img.youtube.com/vi/${vid}/hqdefault.jpg")`;
+  btn.innerHTML = `<span class="play">▶</span><span class="cap">${escapeHtml(t("tutWatch"))}</span>`;
   const open = () => {
     // 開いた時だけ iframe を生成(閉じたら破棄して再生を止める)
     $("#tut-embed").innerHTML =
