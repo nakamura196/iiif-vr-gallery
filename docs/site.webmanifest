@@ -1,0 +1,20 @@
+{
+  "name": "IIIF VR Gallery — IIIF を 3D 仮想美術館で歩いて鑑賞",
+  "short_name": "IIIF VR Gallery",
+  "description": "任意の IIIF（Curation / Collection / Manifest）を 3D の仮想美術館として歩いて鑑賞し、作品を IIIF タイルで超高精細にズームできるビューア。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0b0d",
+  "theme_color": "#15171c",
+  "categories": ["education", "art", "entertainment"],
+  "icons": [
+    { "src": "favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}

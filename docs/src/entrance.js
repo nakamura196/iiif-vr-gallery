@@ -116,6 +116,15 @@ function updateCharVisibility() {
 }
 
 export function showEntrance() {
+  // ?u= など、ロビーに展示カードが無い経路から戻る場合は、ソース系クエリを外して
+  // 再読込し、config の既定ロビーを作り直す(空のロビーで行き止まりにしない)。
+  if (!$("#entrance-cards")?.querySelector(".ex-card")) {
+    const q = new URLSearchParams(location.search);
+    ["u", "curation", "collection", "manifest", "selections", "limit"].forEach((k) => q.delete(k));
+    const qs = q.toString();
+    location.search = qs ? "?" + qs : "";
+    return;
+  }
   if (G.mode !== "orbit") setMode("orbit");
   G.controls.autoRotate = false;
   clearGallery();

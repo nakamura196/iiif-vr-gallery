@@ -80,13 +80,18 @@ export function openViewer(wallCfg, resolved) {
   // OSD は autoResize で自動的にコンテナ寸法に追従するため、手動 resize は呼ばない。
 }
 
-export function closeViewer() {
+export function closeViewer(fromGesture = true) {
   $("#osd-overlay").classList.remove("show");
+  $("#osd-panel").classList.remove("show"); // パネルも一緒に閉じる
   if (G.mode === "walk") {
-    // 歩行モードに復帰。× クリックは操作ジェスチャなので即座に視点ロックを試みる
-    // (失敗時=Esc 直後などは unlock ハンドラがプロンプトを出す)。
-    $("#walk-prompt").classList.add("show");
-    try { G.walkControls.lock(); } catch {}
+    // 歩行モードに復帰。視点ロックには必ずユーザー操作が要る。
+    // × クリック(fromGesture)なら即ロックを試み、成功すればプロンプトは出ない。
+    // Esc 経由(非ジェスチャ)はロックできないので、再開を促すプロンプトを表示する。
+    if (fromGesture) {
+      try { G.walkControls.lock(); } catch {}
+    } else {
+      $("#walk-prompt").classList.add("show");
+    }
     return;
   }
   G.controls.enabled = true;
@@ -98,9 +103,15 @@ export function closeViewer() {
 }
 
 export function setupViewerUI() {
-  $("#osd-close").addEventListener("click", closeViewer);
+  $("#osd-close").addEventListener("click", () => closeViewer(true)); // クリック=ジェスチャ
   $("#osd-info").addEventListener("click", () => $("#osd-panel").classList.toggle("show"));
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isOverlayOpen()) closeViewer();
+    if (e.key !== "Escape" || !isOverlayOpen()) return;
+    // パネルを開いている時は、まずパネルだけ閉じる(全体は閉じない)
+    if ($("#osd-panel").classList.contains("show")) {
+      $("#osd-panel").classList.remove("show");
+      return;
+    }
+    closeViewer(false); // Esc はジェスチャでないので再ロックしない
   });
 }

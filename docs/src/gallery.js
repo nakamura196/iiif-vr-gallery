@@ -31,6 +31,7 @@ export async function resolveWalls(src) {
 export async function buildGalleryFromSource(src, opts = {}) {
   const walls = await resolveWalls(src);
   if (!walls.length) throw new Error("表示する画像がありません");
+  G.entrySource = src; // 画質トグルのリロード後に同じ展示室へ復帰するため記録
   await buildGallery(walls, opts);
 }
 

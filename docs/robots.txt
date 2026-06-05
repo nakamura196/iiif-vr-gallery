@@ -1,0 +1,5 @@
+# IIIF VR Gallery — https://nakamura196.github.io/iiif-vr-gallery/
+User-agent: *
+Allow: /
+
+Sitemap: https://nakamura196.github.io/iiif-vr-gallery/sitemap.xml

@@ -55,6 +55,19 @@ async function init() {
   const limit = parseInt(q.get("limit") || "", 10);
   const startMode = q.get("walk") === "1" ? "walk" : q.get("mode") || G.cfg.controlMode;
 
+  // 画質トグル等によるリロード直後は、保存した展示・モード・アバターで同じ展示室へ直接復帰
+  // (ロビーに戻らない)。一度きり(読んだら破棄)なので通常のリロードは従来どおりロビーを出す。
+  const reentry = readReentry();
+  if (reentry && reentry.source) {
+    if (reentry.char) G.charKind = reentry.char;
+    await buildGalleryFromSource(reentry.source, { resetView: true });
+    $("#loading").style.display = "none";
+    $("#entrance-back").classList.add("show");
+    setMode(reentry.mode || startMode);
+    if ((reentry.mode || startMode) === "orbit" && G.cfg.autoRotate !== false) G.controls.autoRotate = true;
+    return;
+  }
+
   if (url) {
     await enterByUrl(url, { selections: selParam, limit: Number.isFinite(limit) ? limit : undefined, startMode });
     return;
@@ -66,6 +79,7 @@ async function init() {
   else {
     await buildGalleryFromSource(G.cfg, { resetView: true });
     $("#loading").style.display = "none";
+    $("#entrance-back").classList.add("show");
     if (startMode === "walk") setMode("walk");
     else if (G.cfg.autoRotate !== false) G.controls.autoRotate = true;
   }
@@ -89,8 +103,21 @@ async function enterByUrl(url, { selections, limit, startMode } = {}) {
   }
   await buildGalleryFromSource({ auto: url, selections, limit }, { resetView: true });
   $("#loading").style.display = "none";
+  $("#entrance-back").classList.add("show");
   if (startMode === "walk") setMode("walk");
   else if (G.cfg.autoRotate !== false) G.controls.autoRotate = true;
+}
+
+const REENTRY_KEY = "vrgallery:reentry";
+// 画質トグルのリロードで保存した再入室情報を一度だけ読む(読んだら破棄)
+function readReentry() {
+  try {
+    const s = sessionStorage.getItem(REENTRY_KEY);
+    sessionStorage.removeItem(REENTRY_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseSelections(s) {
@@ -110,6 +137,13 @@ function setupQualityToggle() {
     const next = order[(order.indexOf(cur) + 1) % order.length];
     const q = new URLSearchParams(location.search);
     if (next === "auto") q.delete("quality"); else q.set("quality", next);
+    // 現在の展示・モード・アバターを保存し、リロード後に同じ展示室へ直接復帰させる
+    try {
+      sessionStorage.setItem(
+        REENTRY_KEY,
+        JSON.stringify({ source: G.entrySource || null, mode: G.mode, char: G.charKind })
+      );
+    } catch {}
     location.search = q.toString();
   });
   // ギャラリー入室中だけ表示(入口では隠す) — entrance の表示状態で切替
