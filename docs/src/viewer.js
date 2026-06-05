@@ -54,8 +54,7 @@ export function openViewer(wallCfg, resolved) {
       id: "osd",
       prefixUrl: "https://cdn.jsdelivr.net/npm/openseadragon@4.1/build/openseadragon/images/",
       tileSources: resolved.osdTileSource,
-      showNavigator: true,
-      navigatorPosition: "BOTTOM_RIGHT",
+      showNavigator: false, // 右下のミニマップは出さない
       crossOriginPolicy: "Anonymous",
       gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
       maxZoomPixelRatio: 2.5,
