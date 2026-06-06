@@ -207,6 +207,8 @@
 
     /* Enter VR ボタン(VRButton 既定の下部中央 → 上部中央へ。HUD と重ねない) */
     #vr-button { top: 14px !important; bottom: auto !important; }
+    /* ロビー(入口)では隠す。空の部屋で VR に入って真っ暗になるのを防ぐ。 */
+    #vr-button.vr-hidden { display: none !important; }
 
     /* 入口に戻るボタン */
     #entrance-back { top: 16px; left: 18px; display: none; }

@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import { VRButton } from "three/addons/webxr/VRButton.js";
-import { G } from "./state.js";
+import { G, $ } from "./state.js";
 
 let dolly = null;
 let controllers = [];
@@ -30,11 +30,23 @@ export function setupXR() {
       const btn = VRButton.createButton(G.renderer);
       btn.id = "vr-button";
       document.body.appendChild(btn);
+      gateVrButtonToGallery(btn);
     }).catch(() => {});
   }
 
   G.renderer.xr.addEventListener("sessionstart", onSessionStart);
   G.renderer.xr.addEventListener("sessionend", onSessionEnd);
+}
+
+// 入口(ロビー)は 3D の部屋が空(clearGallery 済み)なので、そのまま VR に入ると真っ暗になる。
+// 画質トグルと同様、展示室に入っている時だけ VR ボタンを出す(ロビーでは隠す)。
+// VRButton はインライン style で display を制御するため、隠す側は !important クラスで上書きする。
+function gateVrButtonToGallery(btn) {
+  const entrance = $("#entrance");
+  if (!entrance) return;
+  const sync = () => btn.classList.toggle("vr-hidden", entrance.classList.contains("show"));
+  new MutationObserver(sync).observe(entrance, { attributes: true, attributeFilter: ["class"] });
+  sync();
 }
 
 function onSessionStart() {
