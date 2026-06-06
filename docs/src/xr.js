@@ -98,7 +98,7 @@ export function updateXR(dt) {
       _dir.y = 0;
       if (_dir.lengthSq() < 1e-6) continue;
       _dir.normalize();
-      const right = new THREE.Vector3(_dir.z, 0, -_dir.x);
+      const right = new THREE.Vector3(-_dir.z, 0, _dir.x); // right = forward × up（controls.js と同じ符号）
       dolly.position.addScaledVector(_dir, -y * speed * dt);
       dolly.position.addScaledVector(right, x * speed * dt);
       const r = Math.hypot(dolly.position.x, dolly.position.z);
