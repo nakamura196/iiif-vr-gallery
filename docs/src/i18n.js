@@ -32,6 +32,7 @@ const DICT = {
     walkBig: "クリックで歩行開始",
     walkSub: "WASD / 矢印で移動　マウスで見回す　作品を見て E で拡大　Esc で解除",
     close: "閉じる (Esc)",
+    vrHelp: "左スティック: 移動（前後左右）　右スティック: 45°ずつ回転　作品に近づくと高精細に",
   },
   en: {
     appTitle: "IIIF Virtual Museum",
@@ -63,6 +64,7 @@ const DICT = {
     walkBig: "Click to start walking",
     walkSub: "WASD / arrows to move　mouse to look　aim at a work and press E to zoom　Esc to release",
     close: "Close (Esc)",
+    vrHelp: "Left stick: move (all directions)　Right stick: snap-turn 45°　Walk up to a work for higher detail",
   },
 };
 

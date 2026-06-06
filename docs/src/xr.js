@@ -4,9 +4,12 @@
 import * as THREE from "three";
 import { VRButton } from "three/addons/webxr/VRButton.js";
 import { G, $ } from "./state.js";
+import { t } from "./i18n.js";
 
 let dolly = null;
 let controllers = [];
+let helpPanel = null;     // VR 入室直後に出す操作ヒント(ヘッドセット内では DOM が見えないため 3D 板で表示)
+let helpFade = 0;         // 残り表示秒数(0 で消す)
 
 export function setupXR() {
   if (G.cfg.xr === false) return;
@@ -60,10 +63,49 @@ function onSessionStart() {
   // 通常操作とアバターは止める
   if (G.controls) G.controls.enabled = false;
   if (G.avatar) G.avatar.visible = false;
+  showVrHelp(); // 入室直後に操作ヒントを数秒表示
+}
+
+// 操作ヒントの 3D 板(カメラに追従)。ヘッドセット内では HTML ヘルプが見えないため。
+function showVrHelp() {
+  helpFade = 6; // 6 秒で自動的に消える
+  if (!helpPanel) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024; canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "rgba(12,13,16,0.82)";
+    roundRect(ctx, 0, 0, 1024, 256, 28); ctx.fill();
+    ctx.fillStyle = "#f1ece1";
+    ctx.font = "30px -apple-system, 'Hiragino Sans', sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    // 文字列を「　」(全角スペース)区切りで 3 行に折り返す
+    const lines = t("vrHelp").split("　");
+    const lh = 56, y0 = 128 - ((lines.length - 1) * lh) / 2;
+    lines.forEach((ln, i) => ctx.fillText(ln, 512, y0 + i * lh));
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false });
+    helpPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.2), mat);
+    helpPanel.renderOrder = 999;
+  }
+  helpPanel.material.opacity = 1;
+  G.camera.add(helpPanel);
+  helpPanel.position.set(0, -0.18, -0.9); // 視界の少し下、90cm 前
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 function onSessionEnd() {
   // カメラをシーン直下に戻し、通常モードに復帰
+  if (helpPanel) { G.camera.remove(helpPanel); helpFade = 0; }
   G.scene.add(G.camera);
   G.xrPresenting = false;
   if (G.controls) {
@@ -80,6 +122,12 @@ let _turnCooldown = 0;
 export function updateXR(dt) {
   if (!G.xrPresenting || !dolly) return;
   updateHiRes(dt); // 近寄った作品を高精細タイルに差し替え(VRの「拡大鑑賞」代替)
+  // 操作ヒントを徐々にフェードアウト
+  if (helpFade > 0 && helpPanel) {
+    helpFade = Math.max(0, helpFade - dt);
+    helpPanel.material.opacity = Math.min(1, helpFade); // 最後の 1 秒でフェード
+    if (helpFade === 0) G.camera.remove(helpPanel);
+  }
   const speed = (G.cfg.walkSpeed ?? 5.5) * 0.7;
   _turnCooldown = Math.max(0, _turnCooldown - dt);
 
