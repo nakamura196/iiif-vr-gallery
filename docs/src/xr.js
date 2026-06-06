@@ -118,7 +118,7 @@ function onSessionEnd() {
 const _dir = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 let _turnCooldown = 0;
-// XR 中の移動: 左スティックで滑走、右スティックで45°スナップターン
+// XR 中の移動: 左スティックで滑走、右スティックで30°スナップターン
 export function updateXR(dt) {
   if (!G.xrPresenting || !dolly) return;
   updateHiRes(dt); // 近寄った作品を高精細タイルに差し替え(VRの「拡大鑑賞」代替)
@@ -146,11 +146,12 @@ export function updateXR(dt) {
     const hand = isrc?.handedness || (controllers.indexOf(c) === 0 ? "left" : "right");
 
     if (hand === "right") {
-      // 右スティック: 横倒しで 45° スナップターン(VR 酔い対策。前後では動かさない)
+      // 右スティック: 横倒しで 30° スナップターン(VR 酔い対策で連続回転は避ける)。
+      // 刻みを細かく+短いクールダウンで、倒し続けるとカチカチ素早く回り「連続的」な体感に近づける。
       if (Math.abs(x) >= 0.7 && _turnCooldown === 0) {
-        _q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), x > 0 ? -Math.PI / 4 : Math.PI / 4);
+        _q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), x > 0 ? -Math.PI / 6 : Math.PI / 6);
         dolly.quaternion.multiply(_q);
-        _turnCooldown = 0.35;
+        _turnCooldown = 0.25;
       }
       continue;
     }
