@@ -5,6 +5,7 @@ import { G, $, escapeHtml } from "./state.js";
 import { buildGalleryFromSource, clearGallery } from "./gallery.js";
 import { setMode } from "./controls.js";
 import { curationSelections, memberThumbnail } from "./iiif.js";
+import { isVRAvailable, enterVR } from "./xr.js";
 import { t } from "./i18n.js";
 
 const MODES = [
@@ -30,6 +31,7 @@ export function setupEntranceUI() {
   $("#entrance-enter").addEventListener("click", () => {
     if (selectedEx) selectExhibition(selectedEx, selectedMode);
   });
+  setupVrEnter();
   // 「例」ボタン: クリックで URL 入力欄にサンプル(Cookbook 等)を流し込む(送信はしない)
   const exUrl = G.cfg.exampleIiifUrl;
   const exBtn = $("#entrance-url-example");
@@ -42,6 +44,32 @@ export function setupEntranceUI() {
     });
   }
   setupTutorial();
+}
+
+// ロビーの「VRで入室」ボタン。VR(WebXR)が使える時だけ表示し、使えない時は disabled でグレーアウト。
+// VR ではアバターや一人称/三人称の区別は意味を持たない(入室時に無効化される)ため、選んだモードに
+// 関係なく、選択中の展示をそのまま VR で開く。セッション要求は activation を保つためクリック内で発行する。
+function setupVrEnter() {
+  const btn = $("#entrance-enter-vr");
+  if (!btn) return;
+  isVRAvailable().then((ok) => {
+    btn.hidden = false; // 対応・非対応どちらでも見せる(非対応はグレーアウトで理由を伝える)
+    btn.disabled = !ok;
+    if (!ok) btn.title = t("vrUnsupported");
+  });
+  btn.addEventListener("click", () => {
+    if (btn.disabled || !selectedEx) return;
+    $("#entrance").classList.remove("show");
+    // ギャラリー構築を enterVR に渡す(セッション要求と並行させ、両方そろってから没入開始)。
+    enterVR(() => buildGalleryFromSource(selectedEx.source, { resetView: true })).then(() => {
+      $("#entrance-back").classList.add("show");
+    }).catch((err) => {
+      console.error(err);
+      // 失敗時はロビーに戻して理由を出す(空の真っ暗な状態に取り残さない)
+      $("#entrance").classList.add("show");
+      $("#loading").style.display = "none";
+    });
+  });
 }
 
 // 使い方動画(YouTube埋め込み)モーダル。config.tutorialVideoId があるときだけボタンを出す。
