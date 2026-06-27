@@ -10,6 +10,7 @@ let dolly = null;
 let controllers = [];
 let helpPanel = null;     // VR 入室直後に出す操作ヒント(ヘッドセット内では DOM が見えないため 3D 板で表示)
 let helpFade = 0;         // 残り表示秒数(0 で消す)
+let aimLines = [];        // 各コントローラの照準線(望遠鏡を向ける補助)
 
 export function setupXR() {
   if (G.cfg.xr === false) return;
@@ -23,6 +24,13 @@ export function setupXR() {
   controllers = [0, 1].map((i) => {
     const c = G.renderer.xr.getController(i);
     dolly.add(c);
+    // 照準線(望遠鏡を向ける補助)。作品に当たると明るくなる。
+    const line = makeAimLine();
+    c.add(line);
+    aimLines.push(line);
+    // トリガで「覗き込み拡大」: 引いている間だけ前方に高精細クロップを表示
+    c.addEventListener("selectstart", () => onSelectStart(c));
+    c.addEventListener("selectend", closeMagnifier);
     return c;
   });
 
@@ -32,6 +40,7 @@ export function setupXR() {
       if (!ok) return;
       const btn = VRButton.createButton(G.renderer);
       btn.id = "vr-button";
+      btn.classList.add("vr-hidden"); // 既定は隠す(ロビー/初回ロード中に一瞬でも出さない)
       document.body.appendChild(btn);
       gateVrButtonToGallery(btn);
     }).catch(() => {});
@@ -42,13 +51,19 @@ export function setupXR() {
 }
 
 // 入口(ロビー)は 3D の部屋が空(clearGallery 済み)なので、そのまま VR に入ると真っ暗になる。
-// 画質トグルと同様、展示室に入っている時だけ VR ボタンを出す(ロビーでは隠す)。
+// 標準の Enter VR は「展示室に入っている時だけ」出す。ロビーからの VR 入室は専用ボタン
+// (#entrance-enter-vr → enterVR)に一本化し、そちらが展示室を組み立ててから没入させる。
+//
+// 判定には #entrance-back(← 入口に戻るボタン)の .show を使う。これは展示室に入った時だけ
+// 付き、ロビーでも初回ロード中(まだ #entrance に .show が付く前)でも付かないため、
+// 「ギャラリー在室」の確実なシグナルになる。#entrance.show は初回ロード中の窓で
+// 一瞬ロビー判定を外し、標準ボタンが出てしまっていた。
 // VRButton はインライン style で display を制御するため、隠す側は !important クラスで上書きする。
 function gateVrButtonToGallery(btn) {
-  const entrance = $("#entrance");
-  if (!entrance) return;
-  const sync = () => btn.classList.toggle("vr-hidden", entrance.classList.contains("show"));
-  new MutationObserver(sync).observe(entrance, { attributes: true, attributeFilter: ["class"] });
+  const back = $("#entrance-back");
+  if (!back) return;
+  const sync = () => btn.classList.toggle("vr-hidden", !back.classList.contains("show"));
+  new MutationObserver(sync).observe(back, { attributes: true, attributeFilter: ["class"] });
   sync();
 }
 
@@ -105,6 +120,7 @@ function roundRect(ctx, x, y, w, h, r) {
 
 function onSessionEnd() {
   // カメラをシーン直下に戻し、通常モードに復帰
+  closeMagnifier(); // 拡大板を畳む
   if (helpPanel) { G.camera.remove(helpPanel); helpFade = 0; }
   G.scene.add(G.camera);
   G.xrPresenting = false;
@@ -122,6 +138,7 @@ let _turnCooldown = 0;
 export function updateXR(dt) {
   if (!G.xrPresenting || !dolly) return;
   updateHiRes(dt); // 近寄った作品を高精細タイルに差し替え(VRの「拡大鑑賞」代替)
+  updateAim();      // 照準線の見た目(作品に当たると明るく)
   // 操作ヒントを徐々にフェードアウト
   if (helpFade > 0 && helpPanel) {
     helpFade = Math.max(0, helpFade - dt);
@@ -214,6 +231,137 @@ function updateHiRes(dt) {
       undefined,
       () => { ud._hiResLoading = false; }
     );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 望遠鏡(覗き込み拡大): コントローラのレイで作品を指してトリガを引くと、
+// 当たった一点を中心に IIIF Image API で「その領域だけ」を高精細取得し、
+// 目の前の板(カメラ追従)に拡大表示する。full は取らないので巨大画像でも軽く、
+// 画像の上部・隅など、近接の高精細化だけでは届かない細部も実解像度で見られる。
+// OSD(DOM)は VR では見えないため使わず、WebGL の板テクスチャ差し替えで完結させる。
+
+const RAY_LEN = 6;             // 照準レイの最大長(m)
+const CROP_FRAC = 0.18;        // 取り出す領域の一辺(元画像の長辺に対する割合)。小さいほど高倍率
+const CROP_PX = 2048;          // サーバに要求する切り出し解像度(長辺px)
+const PANEL_SIZE = 0.42;       // 目の前に出す板の一辺(m)
+const PANEL_DIST = 0.6;        // 板を出す距離(m)。望遠鏡を覗く距離感
+
+let magnifier = null;          // 拡大表示の板(Mesh)
+let _magToken = 0;             // 取得中の世代(離した後に古いロードが差し込むのを防ぐ)
+const _rc = new THREE.Raycaster();
+const _o = new THREE.Vector3();
+const _d = new THREE.Vector3();
+const _m = new THREE.Matrix4();
+
+function makeAimLine() {
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 0, -RAY_LEN),
+  ]);
+  const mat = new THREE.LineBasicMaterial({ color: 0x9fb4ff, transparent: true, opacity: 0.25 });
+  const line = new THREE.Line(geo, mat);
+  line.name = "xr-aim";
+  return line;
+}
+
+// コントローラの前方へレイを飛ばし、最初に当たった作品とヒット情報を返す
+function pickFromController(c) {
+  _m.identity().extractRotation(c.matrixWorld);
+  _o.setFromMatrixPosition(c.matrixWorld);
+  _d.set(0, 0, -1).applyMatrix4(_m).normalize();
+  _rc.set(_o, _d);
+  _rc.far = RAY_LEN;
+  return _rc.intersectObjects(G.pickables, false)[0] || null;
+}
+
+function onSelectStart(c) {
+  const hit = pickFromController(c);
+  if (!hit) return;
+  const ud = hit.object.userData;
+  if (!ud?.resolved) return;
+  const url = cropUrlAt(ud.resolved, hit.uv);
+  if (!url) return;
+
+  const token = ++_magToken;
+  const loader = new THREE.TextureLoader();
+  loader.setCrossOrigin("anonymous");
+  loader.load(
+    url,
+    (tex) => {
+      if (token !== _magToken) { tex.dispose(); return; } // 既に離されていれば破棄
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = G.renderer.capabilities.getMaxAnisotropy();
+      showMagnifier(tex);
+    },
+    undefined,
+    () => {}
+  );
+}
+
+// ヒット点の UV(0..1, 左下原点)→ 元画像のピクセル矩形 → IIIF クロップ URL。
+// resolved.region があればその領域内での相対座標として扱う(curation の切り抜き作品)。
+function cropUrlAt(resolved, uv) {
+  if (!uv || !resolved.base) return null; // type:'image'/'dzi' は region 取得不可
+  const R = resolved.region;
+  const imgW = R ? R.imgW : resolved.width;
+  const imgH = R ? R.imgH : resolved.height;
+  if (!imgW || !imgH) return null;
+  // 表示中の領域(full なら画像全体)
+  const vx = R ? R.x : 0, vy = R ? R.y : 0;
+  const vw = R ? R.w : imgW, vh = R ? R.h : imgH;
+  // UV は左下原点・テクスチャ上下は画像と逆。中心ピクセル(画像座標, 左上原点)へ。
+  const cx = vx + uv.x * vw;
+  const cy = vy + (1 - uv.y) * vh;
+  // 取り出す一辺(元画像の長辺基準)。端でクランプ。
+  const side = Math.max(64, Math.round(Math.max(imgW, imgH) * CROP_FRAC));
+  let x = Math.round(cx - side / 2);
+  let y = Math.round(cy - side / 2);
+  x = Math.min(Math.max(0, x), imgW - 1);
+  y = Math.min(Math.max(0, y), imgH - 1);
+  const w = Math.min(side, imgW - x);
+  const h = Math.min(side, imgH - y);
+  return `${resolved.base}/${x},${y},${w},${h}/${CROP_PX},/0/default.jpg`;
+}
+
+function showMagnifier(tex) {
+  if (!magnifier) {
+    const mat = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false });
+    magnifier = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_SIZE, PANEL_SIZE), mat);
+    magnifier.renderOrder = 998;
+    // 縁取り(望遠鏡のフレーム感)。少し大きい暗い板を背面に。
+    const border = new THREE.Mesh(
+      new THREE.PlaneGeometry(PANEL_SIZE * 1.08, PANEL_SIZE * 1.08),
+      new THREE.MeshBasicMaterial({ color: 0x0c0d10, transparent: true, opacity: 0.9, depthTest: false })
+    );
+    border.position.z = -0.001;
+    border.renderOrder = 997;
+    magnifier.add(border);
+  }
+  const old = magnifier.material.map;
+  magnifier.material.map = tex;
+  magnifier.material.needsUpdate = true;
+  old?.dispose?.();
+  if (magnifier.parent !== G.camera) G.camera.add(magnifier);
+  magnifier.position.set(0, 0, -PANEL_DIST); // 視界中央・PANEL_DIST 前方(望遠鏡を覗く位置)
+}
+
+function closeMagnifier() {
+  _magToken++; // 取得中なら破棄させる
+  if (magnifier && magnifier.parent) magnifier.parent.remove(magnifier);
+}
+
+// 照準線の見た目を更新(作品に当たっている側を明るく)。updateXR から毎フレーム呼ぶ。
+function updateAim() {
+  for (let i = 0; i < controllers.length; i++) {
+    const line = aimLines[i];
+    if (!line) continue;
+    const hit = pickFromController(controllers[i]);
+    line.material.opacity = hit ? 0.9 : 0.18;
+    line.material.color.setHex(hit ? 0xffe9a8 : 0x9fb4ff);
+    // レイ長をヒット距離に合わせて縮める(壁を突き抜けて見えないように)
+    const len = hit ? hit.distance : RAY_LEN;
+    line.scale.z = len / RAY_LEN;
   }
 }
 
