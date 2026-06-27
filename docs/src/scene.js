@@ -5,8 +5,28 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { G, $ } from "./state.js";
+
+// 暗部バンディング除去の微小ディザ(表示空間で ±1/255 程度の三角分布ノイズ)。
+// 空間的に固定(時間項なし)なので録画は決定的のまま。
+const DitherShader = {
+  uniforms: { tDiffuse: { value: null }, amount: { value: 1.2 / 255 } },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; uniform float amount; varying vec2 vUv;
+    float rand(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec4 col = texture2D(tDiffuse, vUv);
+      float n = rand(vUv) + rand(vUv + 0.5371) - 1.0; // -1..1 三角分布
+      gl_FragColor = vec4(col.rgb + n * amount, col.a);
+    }
+  `,
+};
 
 // quality: high/medium/low に応じて、重い処理(床反射・ブルーム・解像度・天井灯)を段階調整。
 // 個別の room.* / bloom.enabled で false にすればプリセットより優先して無効化できる。
@@ -89,6 +109,19 @@ export function setupPostprocessing() {
     );
   }
   G.composer.addPass(new OutputPass()); // トーンマッピング + sRGB 出力
+
+  // 暗い室内のグラデーション(霧・光のプール)は 8bit 出力で縞(バンディング)が出やすく、
+  // 動画圧縮で更に目立つ。表示空間(sRGB)で微小な三角ノイズ・ディザを足して縞を崩す。
+  G.composer.addPass(new ShaderPass(DitherShader));
+
+  // EffectComposer 経由だと renderer の antialias(MSAA)が効かない(描画先が独自RT)。
+  // WebGL2 では RT を multisample 化できる。額縁・什器の細い高コントラスト境界の
+  // ジャギ/ちらつき(動画圧縮で悪化)を抑える。低コスト。
+  const samples = G.QP.msaa ?? 4;
+  if (samples > 0 && G.renderer.capabilities.isWebGL2) {
+    if (G.composer.renderTarget1) G.composer.renderTarget1.samples = samples;
+    if (G.composer.renderTarget2) G.composer.renderTarget2.samples = samples;
+  }
 }
 
 function onResize() {
