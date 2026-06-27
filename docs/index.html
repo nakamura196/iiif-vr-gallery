@@ -103,17 +103,23 @@
 
     /* モード切替ボタン */
     /* 上部の操作ボタン(共通の上品なスタイル) */
-    #mode-toggle, #quality-toggle, #entrance-back {
+    #mode-toggle, #quality-toggle, #entrance-back, #tour-toggle, #tour-toggle-3p {
       position: fixed; z-index: 20; cursor: pointer;
       background: rgba(14,15,19,.72); backdrop-filter: blur(10px);
       border: 1px solid rgba(201,164,76,.30); border-radius: 999px;
       padding: 8px 18px; font-size: 12px; letter-spacing: .14em; color: #e6e2d6;
       transition: border-color .15s, background .15s, color .15s; }
-    #mode-toggle:hover, #quality-toggle:hover, #entrance-back:hover {
+    #mode-toggle:hover, #quality-toggle:hover, #entrance-back:hover, #tour-toggle:hover, #tour-toggle-3p:hover {
       border-color: #c9a44c; color: #f4efe3; background: rgba(22,24,29,.85); }
     #mode-toggle { top: 16px; right: 18px; }
     #quality-toggle { top: 58px; right: 18px; display: none; padding: 6px 14px; font-size: 11px; color: #c8c2b2; }
     #quality-toggle.show { display: block; }
+    #tour-toggle, #tour-toggle-3p { display: none; right: 18px; padding: 6px 14px; font-size: 11px; color: #c8c2b2; }
+    #tour-toggle.show, #tour-toggle-3p.show { display: block; }
+    #tour-toggle { top: 92px; }
+    #tour-toggle-3p { top: 126px; }
+    #tour-toggle.recording, #tour-toggle-3p.recording { border-color: #e0584f; color: #f4b0aa; background: rgba(40,18,18,.85); }
+    #tour-toggle:disabled, #tour-toggle-3p:disabled { opacity: .4; cursor: default; }
 
     /* バーチャルコントローラ(スマホ用ジョイスティック) */
     #joystick { position: fixed; left: 24px; bottom: 24px; width: 124px; height: 124px;
@@ -282,6 +288,8 @@
 
   <button id="mode-toggle" data-i18n="toWalk">歩く</button>
   <button id="quality-toggle" title="画質 / Quality"></button>
+  <button id="tour-toggle" data-i18n="tourFirst" data-i18n-title="tourTitleFirst"></button>
+  <button id="tour-toggle-3p" data-i18n="tourThird" data-i18n-title="tourTitleThird"></button>
   <button id="entrance-back" data-i18n="back">← 入口</button>
   <div id="crosshair"></div>
   <div id="walk-prompt">

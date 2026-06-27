@@ -311,7 +311,8 @@ function groundAt(x, z) {
   return g;
 }
 // 水平移動を解決(ぶつかったら軸ごとに滑る)。壁(walkBounds)内にも収める。
-function resolveMove(px, pz, dx, dz, feetY) {
+// tour.js の三人称ツアーでもアバターの当たり判定に再利用する。
+export function resolveMove(px, pz, dx, dz, feetY) {
   let nx = px + dx, nz = pz + dz;
   if (blockedAt(nx, nz, feetY)) {
     if (!blockedAt(px + dx, pz, feetY)) { nx = px + dx; nz = pz; }

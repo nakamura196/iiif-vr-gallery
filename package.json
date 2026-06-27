@@ -1,0 +1,25 @@
+{
+  "name": "abekawa",
+  "version": "1.0.0",
+  "description": "任意の **IIIF**（Curation / Collection / Manifest）を、3D の仮想美術館として歩いて鑑賞できるビューア。 壁の作品にカーソルを合わせて拡大すると、[OpenSeadragon](https://openseadragon.github.io/) で IIIF サーバのタイルを そのまま超高精細ズームできます。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nakamura196/iiif-vr-gallery.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nakamura196/iiif-vr-gallery/issues"
+  },
+  "homepage": "https://github.com/nakamura196/iiif-vr-gallery#readme"
+}

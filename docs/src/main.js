@@ -15,6 +15,7 @@ import { setupScene, setupPostprocessing } from "./scene.js";
 import { setupControls, setMode, updateWalk, updateThirdPerson, updateFlight, updateHover } from "./controls.js";
 import { setupViewerUI } from "./viewer.js";
 import { setupXR, bindXRInputSources, updateXR } from "./xr.js";
+import { setupTourUI, updateTour, isTouring } from "./tour.js";
 import { buildGalleryFromSource } from "./gallery.js";
 import { setupEntranceUI, buildEntrance, buildEntranceFromCuration, selectExhibition } from "./entrance.js";
 
@@ -43,6 +44,7 @@ async function init() {
   setupXR();
   bindXRInputSources();
   setupQualityToggle();
+  setupTourUI();
 
   if (window.__DEBUG) exposeDebug();
 
@@ -158,6 +160,13 @@ function loop() {
     updateXR(dt);
     if (G.mixer) G.mixer.update(dt);
     G.renderer.render(G.scene, G.camera); // XR 中はポスト処理を使わない
+    return;
+  }
+  // 録画ツアー中はカメラを直接駆動する(通常操作・ホバーは止める)。描画は通常経路のまま
+  // (composer.render が canvas を更新 → captureStream が録れる。ブルーム等の演出も乗る)。
+  if (isTouring()) {
+    updateTour(dt);
+    G.composer.render();
     return;
   }
   updateFlight(dt);

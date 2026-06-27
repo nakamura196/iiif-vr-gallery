@@ -32,7 +32,12 @@ const DICT = {
     walkBig: "クリックで歩行開始",
     walkSub: "WASD / 矢印で移動　マウスで見回す　作品を見て E で拡大　Esc で解除",
     close: "閉じる (Esc)",
-    vrHelp: "左スティック: 移動（前後左右）　右スティック: 30°ずつ回転　作品に近づくと高精細に",
+    vrHelp: "左スティック: 移動（前後左右）　右スティック: 30°ずつ回転　作品に向けてトリガーで拡大（覗き込み）",
+    tourFirst: "● 一人称ツアー",
+    tourThird: "● 三人称ツアー",
+    tourStop: "■ 停止",
+    tourTitleFirst: "一人称視点で作品を自動で巡る映像を録画(WebM保存)",
+    tourTitleThird: "アバターが歩いて作品を巡る映像を録画(WebM保存)",
   },
   en: {
     appTitle: "IIIF Virtual Museum",
@@ -64,7 +69,12 @@ const DICT = {
     walkBig: "Click to start walking",
     walkSub: "WASD / arrows to move　mouse to look　aim at a work and press E to zoom　Esc to release",
     close: "Close (Esc)",
-    vrHelp: "Left stick: move (all directions)　Right stick: snap-turn 30°　Walk up to a work for higher detail",
+    vrHelp: "Left stick: move (all directions)　Right stick: snap-turn 30°　Aim at a work and hold the trigger to magnify",
+    tourFirst: "● First-person",
+    tourThird: "● Third-person",
+    tourStop: "■ Stop",
+    tourTitleFirst: "Record a first-person auto tour of the works (saves WebM)",
+    tourTitleThird: "Record a tour with the avatar walking the works (saves WebM)",
   },
 };
 
