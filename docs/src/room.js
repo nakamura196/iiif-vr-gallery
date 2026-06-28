@@ -65,6 +65,26 @@ function makeMolding(w, h, color) {
   return g;
 }
 
+// オープングリッド天井(井桁ルーバー)風のテクスチャ。暗い格子をリピートで敷く。
+let _gridTex = null;
+function gridCeilingTexture(reach) {
+  if (_gridTex) { _gridTex.repeat.set(Math.max(8, Math.round(reach / 0.9)), Math.max(8, Math.round(reach / 0.9))); return _gridTex; }
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const x = c.getContext("2d");
+  x.fillStyle = "#080a0d"; x.fillRect(0, 0, 128, 128);
+  x.strokeStyle = "#30343d"; x.lineWidth = 7; x.strokeRect(0, 0, 128, 128); // 桝の外枠
+  x.strokeStyle = "#191c22"; x.lineWidth = 3;                                // 内側の細格子
+  x.beginPath(); x.moveTo(64, 0); x.lineTo(64, 128); x.moveTo(0, 64); x.lineTo(128, 64); x.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  const cells = Math.max(8, Math.round(reach / 0.9));
+  t.repeat.set(cells, cells);
+  _gridTex = t;
+  return t;
+}
+
 function glowPlane(w, h, color, opacity) {
   return new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -153,10 +173,11 @@ export function buildRoom(placements) {
     root.add(floor);
   }
 
-  const ceil = new THREE.Mesh(
-    new THREE.CircleGeometry(reach, 64),
-    new THREE.MeshStandardMaterial({ color: room.ceilingColor || "#0c0d11", roughness: 1 })
-  );
+  // 天井: 既定は無地。gridCeiling:true で井桁グリッド(美術館のオープン天井)風。
+  const ceilMat = room.gridCeiling
+    ? new THREE.MeshStandardMaterial({ map: gridCeilingTexture(reach), color: 0xffffff, roughness: 1 })
+    : new THREE.MeshStandardMaterial({ color: room.ceilingColor || "#0c0d11", roughness: 1 });
+  const ceil = new THREE.Mesh(new THREE.CircleGeometry(reach, 64), ceilMat);
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = roomH;
   root.add(ceil);
@@ -271,16 +292,26 @@ export function addArtwork(wallCfg, resolved, place) {
   if (normal.lengthSq() < 1e-6) normal.set(0, 0, 1);
   normal.normalize();
 
-  // マット(額の内側の余白) — ホバー時のハイライト対象でもある
-  const frame = new THREE.Mesh(
-    new THREE.PlaneGeometry(w + 0.16, h + 0.16),
-    new THREE.MeshStandardMaterial({ color: 0x14110b, roughness: 0.85, metalness: 0.1 })
-  );
+  // マット(額の内側の余白) — ホバー時のハイライト対象でもある。
+  // frameStyle:"lightbox" は写真系美術館風: 深い白マットが発光し、細い暗フレームで縁取る。
+  const lightbox = room.frameStyle === "lightbox";
+  const matBorder = lightbox ? 0.20 : 0.08;
+  const frameMat = lightbox
+    ? new THREE.MeshBasicMaterial({ color: room.matColor || 0xeae6da, toneMapped: false }) // 発光する明るいマット
+    : new THREE.MeshStandardMaterial({ color: 0x14110b, roughness: 0.85, metalness: 0.1 });
+  const frame = new THREE.Mesh(new THREE.PlaneGeometry(w + matBorder * 2, h + matBorder * 2), frameMat);
   frame.position.z = 0.02;
   group.add(frame);
 
-  // 立体的な額縁(モールディング): 4本のバーで縁取り。落ち着いた金縁で美術館らしく。
-  if (room.frames !== false) group.add(makeMolding(w, h, room.frameColor || 0x6e5a2c));
+  // 額縁(モールディング): 既定は落ち着いた金縁。lightbox は細い暗フレーム。
+  if (room.frames !== false) group.add(makeMolding(w, h, lightbox ? 0x0a0a0c : (room.frameColor || 0x6e5a2c)));
+
+  // lightbox: 作品まわりの壁に光をにじませる(ライトボックスのこぼれ光)
+  if (lightbox) {
+    const wallGlow = glowPlane(w * 2.3, h * 2.1, room.lightColor || "#fff4e0", 0.42);
+    wallGlow.position.set(0, 0.05, 0.006); // 額(z=0.02)の背後 → 額の外側へ回り込む
+    group.add(wallGlow);
+  }
 
   // 絵: まずグレーのプレースホルダ → サムネ読み込み後に差し替え。発色維持のため非ライティング材質。
   const artMat = new THREE.MeshBasicMaterial({ color: 0x23262d, toneMapped: false });
@@ -311,6 +342,16 @@ export function addArtwork(wallCfg, resolved, place) {
   }
 
   const center = group.position.clone();
+
+  // 床への映り込み(擬似): 作品の手前(中心側)へ伸びる縦長のグロー。鏡面 Reflector のような
+  // シマー/コストなしで「作品の光が床に映る」重厚感を出す。group は内向きなので local +z が中心方向。
+  if (room.floorReflectStreaks) {
+    const streak = glowPlane(w * 0.9, 3.2, room.lightColor || "#ffe9c4", 0.5);
+    streak.rotation.x = -Math.PI / 2;          // 床に寝かせる
+    streak.position.set(0, -center.y + 0.02, 1.6); // 足元(world y≈0)・作品の手前へ
+    group.add(streak);
+  }
+
   // 作品まわりの照明。quality=high は本物のスポット(立体的で realistic)、それ以外は擬似グロー(軽い)。
   if (room.spotlights !== false) {
     if (G.QP.spotMode === "real") {

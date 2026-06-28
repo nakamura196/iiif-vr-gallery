@@ -9,7 +9,7 @@
 // 設定はすべて config.json 駆動。
 
 import { G, $ } from "./state.js";
-import { setLang, applyI18n } from "./i18n.js";
+import { setLang, applyI18n, t } from "./i18n.js";
 import { fetchJson, detectIiifType } from "./iiif.js";
 import { setupScene, setupPostprocessing } from "./scene.js";
 import { setupControls, setMode, updateWalk, updateThirdPerson, updateFlight, updateHover } from "./controls.js";
@@ -31,6 +31,12 @@ async function init() {
   if (q0.get("quality")) G.cfg.quality = q0.get("quality");
   if (q0.get("vc")) G.cfg.virtualController = q0.get("vc");
   if (q0.get("walkSpeed")) G.cfg.walkSpeed = parseFloat(q0.get("walkSpeed")) || G.cfg.walkSpeed;
+  // ?look=museum: 写真系美術館風(ライトボックス額装 + 床の映り込み)。既定はOFF。
+  // (グリッド天井は暗室で見えにくく費用対効果が低いためプリセットから除外。room.gridCeiling で個別有効化可)
+  if (q0.get("look") === "museum") {
+    const r = (G.cfg.room = G.cfg.room || {});
+    r.floorReflectStreaks = true; r.frameStyle = "lightbox";
+  }
   const lang = q0.get("lang") || G.cfg.lang || navigator.language;
   setLang(lang);
   applyI18n();
@@ -44,6 +50,7 @@ async function init() {
   setupXR();
   bindXRInputSources();
   setupQualityToggle();
+  setupLookToggle();
   setupTourUI();
 
   if (window.__DEBUG) exposeDebug();
@@ -149,6 +156,28 @@ function setupQualityToggle() {
     location.search = q.toString();
   });
   // ギャラリー入室中だけ表示(入口では隠す) — entrance の表示状態で切替
+  const sync = () => btn.classList.toggle("show", !$("#entrance").classList.contains("show"));
+  new MutationObserver(sync).observe($("#entrance"), { attributes: true, attributeFilter: ["class"] });
+  sync();
+}
+
+// 内装トグル: 標準 ↔ 写真館(?look=museum でリロード)。画質トグルと同じく展示を保ったまま再入室。
+function setupLookToggle() {
+  const btn = $("#look-toggle");
+  if (!btn) return;
+  const isMuseum = new URLSearchParams(location.search).get("look") === "museum";
+  btn.textContent = isMuseum ? t("lookMuseum") : t("lookStandard");
+  btn.addEventListener("click", () => {
+    const q = new URLSearchParams(location.search);
+    if (isMuseum) q.delete("look"); else q.set("look", "museum");
+    try {
+      sessionStorage.setItem(
+        REENTRY_KEY,
+        JSON.stringify({ source: G.entrySource || null, mode: G.mode, char: G.charKind })
+      );
+    } catch {}
+    location.search = q.toString();
+  });
   const sync = () => btn.classList.toggle("show", !$("#entrance").classList.contains("show"));
   new MutationObserver(sync).observe($("#entrance"), { attributes: true, attributeFilter: ["class"] });
   sync();
