@@ -6,7 +6,7 @@ import { buildGalleryFromSource, clearGallery } from "./gallery.js";
 import { setMode } from "./controls.js";
 import { curationSelections, memberThumbnail } from "./iiif.js";
 import { isVRAvailable, enterVR } from "./xr.js";
-import { t } from "./i18n.js";
+import { t, getLang } from "./i18n.js";
 
 const MODES = [
   { id: "thirdperson", key: "modeThird" },
@@ -72,27 +72,40 @@ function setupVrEnter() {
   });
 }
 
-// 使い方動画(YouTube埋め込み)モーダル。config.tutorialVideoId があるときだけボタンを出す。
+// 動画ID を言語別に解決する。文字列ならそのまま、{ja,en} なら現在の言語(無ければ ja)を選ぶ。
+function pickVideoId(conf) {
+  if (!conf) return null;
+  if (typeof conf === "string") return conf;
+  return conf[getLang()] || conf.ja || Object.values(conf)[0] || null;
+}
+
+// 使い方/ツアー動画(YouTube埋め込み)モーダル。config.tutorialVideoId / tourVideoId があるとき出す。
+// どちらも {ja,en} で言語別の動画を指定可。共有モーダル(#tut-modal)に開く。
 function setupTutorial() {
-  const vid = G.cfg.tutorialVideoId;
-  const btn = $("#entrance-tut");
-  if (!vid || !btn) return;
-  btn.hidden = false;
-  // サムネ + 再生ボタンの動画カードにする(視認性を上げ、再生=YouTube再生回数にカウント)
-  btn.style.backgroundImage = `url("https://img.youtube.com/vi/${vid}/hqdefault.jpg")`;
-  btn.innerHTML = `<span class="play">▶</span><span class="cap">${escapeHtml(t("tutWatch"))}</span>`;
-  const open = () => {
-    // 開いた時だけ iframe を生成(閉じたら破棄して再生を止める)
-    $("#tut-embed").innerHTML =
-      `<iframe src="https://www.youtube.com/embed/${vid}?rel=0&autoplay=1" ` +
-      `title="tutorial" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>`;
-    $("#tut-modal").classList.add("show");
-  };
   const close = () => {
     $("#tut-modal").classList.remove("show");
     $("#tut-embed").innerHTML = "";
   };
-  btn.addEventListener("click", open);
+  // 各カード(ボタン)を配線。vid が無ければ非表示のまま。
+  const wireCard = (btnSel, conf, labelKey) => {
+    const vid = pickVideoId(conf);
+    const btn = $(btnSel);
+    if (!vid || !btn) return;
+    btn.hidden = false;
+    btn.style.backgroundImage = `url("https://img.youtube.com/vi/${vid}/hqdefault.jpg")`;
+    btn.innerHTML = `<span class="play">▶</span><span class="cap">${escapeHtml(t(labelKey))}</span>`;
+    btn.addEventListener("click", () => {
+      // 開いた時だけ iframe を生成(閉じたら破棄して再生を止める)
+      $("#tut-embed").innerHTML =
+        `<iframe src="https://www.youtube.com/embed/${vid}?rel=0&autoplay=1" ` +
+        `title="${labelKey}" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>`;
+      $("#tut-modal").classList.add("show");
+    });
+  };
+  wireCard("#entrance-tut", G.cfg.tutorialVideoId, "tutWatch");
+  wireCard("#entrance-tour", G.cfg.tourVideoId, "tourWatch");
+
+  // モーダルの閉じる操作は一度だけ配線
   $("#tut-close").addEventListener("click", close);
   $("#tut-modal").addEventListener("click", (e) => { if (e.target.id === "tut-modal") close(); });
   window.addEventListener("keydown", (e) => {

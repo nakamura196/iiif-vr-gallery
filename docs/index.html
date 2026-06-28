@@ -183,18 +183,19 @@
       text-underline-offset: 3px; transition: color .15s; }
     #entrance-url-example:hover { color: #d8bd78; }
     /* 使い方動画カード(サムネ + 再生ボタン) */
-    #entrance-tut { position: relative; margin-top: 14px; width: 360px; max-width: 86vw; aspect-ratio: 16 / 9;
+    #entrance-tut, #entrance-tour { position: relative; margin-top: 12px; width: 300px; max-width: 86vw; aspect-ratio: 16 / 9;
       flex: none; padding: 0; cursor: pointer; overflow: hidden; border-radius: 12px; color: #fff;
       border: 1px solid rgba(201,164,76,.35); background-size: cover; background-position: center;
       box-shadow: 0 8px 28px rgba(0,0,0,.45); transition: transform .15s, border-color .15s; }
-    #entrance-tut:hover { transform: translateY(-2px); border-color: #c9a44c; }
-    #entrance-tut::after { content: ""; position: absolute; inset: 0;
+    #entrance-tut { margin-top: 14px; width: 360px; }
+    #entrance-tut:hover, #entrance-tour:hover { transform: translateY(-2px); border-color: #c9a44c; }
+    #entrance-tut::after, #entrance-tour::after { content: ""; position: absolute; inset: 0;
       background: linear-gradient(to top, rgba(0,0,0,.6), rgba(0,0,0,.04) 55%); }
-    #entrance-tut .play { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 2;
+    #entrance-tut .play, #entrance-tour .play { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 2;
       width: 56px; height: 56px; border-radius: 50%; background: rgba(201,164,76,.94); color: #1a1408;
       display: flex; align-items: center; justify-content: center; font-size: 21px; padding-left: 3px;
       box-shadow: 0 4px 14px rgba(0,0,0,.4); }
-    #entrance-tut .cap { position: absolute; left: 13px; bottom: 10px; z-index: 2; font-size: 12.5px;
+    #entrance-tut .cap, #entrance-tour .cap { position: absolute; left: 13px; bottom: 10px; z-index: 2; font-size: 12.5px;
       letter-spacing: .06em; color: #f4efe3; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
     /* 使い方動画モーダル */
     #tut-modal { position: fixed; inset: 0; z-index: 120; display: none; align-items: center;
@@ -306,6 +307,7 @@
     <h1 data-i18n="appTitle">IIIF バーチャル美術館</h1>
     <div class="lead" data-i18n="entranceLead"></div>
     <button id="entrance-tut" type="button" hidden aria-label="tutorial"></button>
+    <button id="entrance-tour" type="button" hidden aria-label="auto tour"></button>
     <div id="entrance-modes"></div>
     <div id="entrance-chars"></div>
     <div id="entrance-cards"></div>
