@@ -86,6 +86,40 @@ function gridCeilingTexture(reach) {
   return t;
 }
 
+// 寄木(板張り)床のテクスチャ。横板を少しずつ色変えし、継ぎ目と淡い木目を描く。
+let _woodTex = null;
+function woodFloorTexture() {
+  if (_woodTex) return _woodTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const x = c.getContext("2d");
+  const planks = 6, ph = 256 / planks;
+  for (let i = 0; i < planks; i++) {
+    // 板ごとに明度を僅かに変える(暗い茶系)
+    const base = 26 + ((i * 37) % 14);           // 26〜39
+    x.fillStyle = `rgb(${base + 8},${base},${base - 6})`;
+    x.fillRect(0, i * ph, 256, ph);
+    // 木目(縦の淡い筋)
+    for (let g = 0; g < 7; g++) {
+      x.strokeStyle = `rgba(${base + 18},${base + 8},${base - 2},0.18)`;
+      x.lineWidth = 1;
+      const gx = (g * 41 + i * 17) % 256;
+      x.beginPath(); x.moveTo(gx, i * ph + 2); x.lineTo(gx + 6, (i + 1) * ph - 2); x.stroke();
+    }
+    // 板の継ぎ目(横線) + 板を互い違いに割る縦の目地
+    x.strokeStyle = "rgba(0,0,0,0.55)"; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(0, i * ph + 0.5); x.lineTo(256, i * ph + 0.5); x.stroke();
+    const seam = (i % 2 ? 128 : 0);
+    x.beginPath(); x.moveTo(seam, i * ph); x.lineTo(seam, (i + 1) * ph); x.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = G.renderer.capabilities.getMaxAnisotropy();
+  _woodTex = t;
+  return t;
+}
+
 function glowPlane(w, h, color, opacity) {
   return new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
@@ -154,9 +188,33 @@ export function buildRoom(placements) {
     root.add(base);
   }
 
-  // 床: 既定はマット(美術館同様)。reflectiveFloor:true かつ画質 low 以外なら反射床。
+  // 床: 既定はマット(美術館同様)。floorStyle:"wood" で艶のある板張り、reflectiveFloor:true で鏡面。
   const reach = (placements[0]?.apothem || 8) * 2.4 + 6;
-  if (room.reflectiveFloor === true && G.QP.reflector > 0) {
+  G.floorReflective = false;
+  if (room.floorStyle === "wood") {
+    const woodTex = woodFloorTexture();
+    woodTex.repeat.set(Math.round(reach / 1.8), Math.round(reach / 1.8));
+    // 低 roughness + 環境マップで艶(板床の照り)を出す。スポット光の写り込みも乗る。軽い。
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(reach, 64),
+      new THREE.MeshStandardMaterial({ map: woodTex, roughness: room.floorRoughness ?? 0.4, metalness: 0.12 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.name = "woodFloor";
+    root.add(floor);
+    // 画質 high(reflector 許可)時のみ、薄い鏡面を下に敷いて作品の本物の映り込みを足す(やや重い)。
+    if (G.QP.reflector > 0 && room.floorReflect !== false) {
+      const refl = new Reflector(new THREE.CircleGeometry(reach, 64), {
+        color: new THREE.Color(0x070809), textureWidth: G.QP.reflector, textureHeight: G.QP.reflector, clipBias: 0.003,
+      });
+      refl.rotateX(-Math.PI / 2);
+      refl.position.y = -0.012;            // 木目床のわずか下
+      floor.material.transparent = true;    // 木目を通して鏡面が透ける
+      floor.material.opacity = 0.82;
+      root.add(refl);
+      G.floorReflective = true;
+    }
+  } else if (room.reflectiveFloor === true && G.QP.reflector > 0) {
     const floor = new Reflector(new THREE.CircleGeometry(reach, 64), {
       color: new THREE.Color(room.floorColor || "#0a0b0d"),
       textureWidth: G.QP.reflector,
@@ -240,24 +298,30 @@ function buildFurniture(placements, roomH) {
     G.galleryRoot.add(g);
   };
 
-  const pedR = 0.7;
-  const pedH = 0.95;
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(pedR, pedR * 1.05, pedH, 32), stone);
-  ped.position.y = pedH / 2;
-  G.galleryRoot.add(ped);
-  const top = new THREE.Mesh(
-    new THREE.CircleGeometry(pedR, 32),
-    new THREE.MeshStandardMaterial({ color: 0x4a515c, roughness: 0.4 })
-  );
-  top.rotation.x = -Math.PI / 2;
-  top.position.y = pedH + 0.001;
-  G.galleryRoot.add(top);
-  floorGlow(0, 0, 3.2);
-  const pedShadow = makeShadow(pedR * 2.8, 0.8); pedShadow.position.set(0, 0.016, 0); G.galleryRoot.add(pedShadow);
-  G.pedestalR = pedR + 0.35;
-  // 当たり箱: 台座(円柱)。横は通れず、上には乗れる。
-  G.colliders.push({ kind: "cyl", x: 0, z: 0, r: pedR + 0.25, top: pedH });
+  // 中央の台座(pedestal:false で消せる)。当たり箱もその時だけ追加。
+  G.pedestalR = 0;
+  if (room.pedestal !== false) {
+    const pedR = 0.7;
+    const pedH = 0.95;
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(pedR, pedR * 1.05, pedH, 32), stone);
+    ped.position.y = pedH / 2;
+    G.galleryRoot.add(ped);
+    const top = new THREE.Mesh(
+      new THREE.CircleGeometry(pedR, 32),
+      new THREE.MeshStandardMaterial({ color: 0x4a515c, roughness: 0.4 })
+    );
+    top.rotation.x = -Math.PI / 2;
+    top.position.y = pedH + 0.001;
+    G.galleryRoot.add(top);
+    floorGlow(0, 0, 3.2);
+    const pedShadow = makeShadow(pedR * 2.8, 0.8); pedShadow.position.set(0, 0.016, 0); G.galleryRoot.add(pedShadow);
+    G.pedestalR = pedR + 0.35;
+    // 当たり箱: 台座(円柱)。横は通れず、上には乗れる。
+    G.colliders.push({ kind: "cyl", x: 0, z: 0, r: pedR + 0.25, top: pedH });
+  }
 
+  // ベンチ(benches:false で消せる)
+  if (room.benches === false) return;
   const benchMat = new THREE.MeshStandardMaterial({ color: 0x343a43, roughness: 0.8 });
   const benchR = (placements[0]?.apothem || 8) * 0.5;
   for (let i = 0; i < 4; i++) {
