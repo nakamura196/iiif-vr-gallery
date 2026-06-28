@@ -31,10 +31,12 @@ async function init() {
   if (q0.get("quality")) G.cfg.quality = q0.get("quality");
   if (q0.get("vc")) G.cfg.virtualController = q0.get("vc");
   if (q0.get("walkSpeed")) G.cfg.walkSpeed = parseFloat(q0.get("walkSpeed")) || G.cfg.walkSpeed;
-  // ?look=museum: 写真系美術館風(艶のある板床 + ライトボックス額装 + 床の映り込み + 発光グリッド天井)。既定はOFF。
+  // ?look=museum: 写真系美術館風(艶のある板床 + ライトボックス額装 + 床の映り込み + 発光グリッド天井)。
+  // 参照写真に倣い什器(台座・ベンチ)は非表示にしてミニマルに。既定はOFF。
   if (q0.get("look") === "museum") {
     const r = (G.cfg.room = G.cfg.room || {});
     r.floorStyle = "wood"; r.floorReflectStreaks = true; r.frameStyle = "lightbox"; r.gridCeiling = true;
+    r.pedestal = false; r.benches = false;
   }
   const lang = q0.get("lang") || G.cfg.lang || navigator.language;
   setLang(lang);
