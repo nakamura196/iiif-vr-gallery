@@ -65,21 +65,22 @@ function makeMolding(w, h, color) {
   return g;
 }
 
-// オープングリッド天井(井桁ルーバー)風のテクスチャ。暗い格子をリピートで敷く。
+// オープングリッド天井(井桁ルーバー)風の emissiveMap。格子線だけが淡く自発光し、桝は黒。
+// 暗室でも天井の格子が読めつつ、雰囲気を壊さない(線はブルームで少しにじむ)。
 let _gridTex = null;
 function gridCeilingTexture(reach) {
-  if (_gridTex) { _gridTex.repeat.set(Math.max(8, Math.round(reach / 0.9)), Math.max(8, Math.round(reach / 0.9))); return _gridTex; }
+  const cells = Math.max(8, Math.round(reach / 0.9));
+  if (_gridTex) { _gridTex.repeat.set(cells, cells); return _gridTex; }
   const c = document.createElement("canvas");
   c.width = c.height = 128;
   const x = c.getContext("2d");
-  x.fillStyle = "#080a0d"; x.fillRect(0, 0, 128, 128);
-  x.strokeStyle = "#30343d"; x.lineWidth = 7; x.strokeRect(0, 0, 128, 128); // 桝の外枠
-  x.strokeStyle = "#191c22"; x.lineWidth = 3;                                // 内側の細格子
+  x.fillStyle = "#000000"; x.fillRect(0, 0, 128, 128);          // 桝(発光なし)
+  x.strokeStyle = "#8c8270"; x.lineWidth = 8; x.strokeRect(0, 0, 128, 128); // 桝の外枠(やや明るく)
+  x.strokeStyle = "#3a352c"; x.lineWidth = 3;                                // 内側の細格子
   x.beginPath(); x.moveTo(64, 0); x.lineTo(64, 128); x.moveTo(0, 64); x.lineTo(128, 64); x.stroke();
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;
-  const cells = Math.max(8, Math.round(reach / 0.9));
   t.repeat.set(cells, cells);
   _gridTex = t;
   return t;
@@ -173,9 +174,14 @@ export function buildRoom(placements) {
     root.add(floor);
   }
 
-  // 天井: 既定は無地。gridCeiling:true で井桁グリッド(美術館のオープン天井)風。
+  // 天井: 既定は無地。gridCeiling:true で井桁グリッド(美術館のオープン天井)風 — 格子線だけ淡く発光。
   const ceilMat = room.gridCeiling
-    ? new THREE.MeshStandardMaterial({ map: gridCeilingTexture(reach), color: 0xffffff, roughness: 1 })
+    ? new THREE.MeshStandardMaterial({
+        color: 0x0a0b0e, roughness: 1,
+        emissive: new THREE.Color(room.lightColor || "#ffe9c4"),
+        emissiveMap: gridCeilingTexture(reach),
+        emissiveIntensity: room.gridGlow ?? 0.35,
+      })
     : new THREE.MeshStandardMaterial({ color: room.ceilingColor || "#0c0d11", roughness: 1 });
   const ceil = new THREE.Mesh(new THREE.CircleGeometry(reach, 64), ceilMat);
   ceil.rotation.x = Math.PI / 2;
@@ -346,9 +352,9 @@ export function addArtwork(wallCfg, resolved, place) {
   // 床への映り込み(擬似): 作品の手前(中心側)へ伸びる縦長のグロー。鏡面 Reflector のような
   // シマー/コストなしで「作品の光が床に映る」重厚感を出す。group は内向きなので local +z が中心方向。
   if (room.floorReflectStreaks) {
-    const streak = glowPlane(w * 0.9, 3.2, room.lightColor || "#ffe9c4", 0.5);
+    const streak = glowPlane(w * 0.95, 3.6, room.lightColor || "#ffe9c4", 0.58);
     streak.rotation.x = -Math.PI / 2;          // 床に寝かせる
-    streak.position.set(0, -center.y + 0.02, 1.6); // 足元(world y≈0)・作品の手前へ
+    streak.position.set(0, -center.y + 0.02, 1.8); // 足元(world y≈0)・作品の手前へ
     group.add(streak);
   }
 

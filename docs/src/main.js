@@ -31,11 +31,10 @@ async function init() {
   if (q0.get("quality")) G.cfg.quality = q0.get("quality");
   if (q0.get("vc")) G.cfg.virtualController = q0.get("vc");
   if (q0.get("walkSpeed")) G.cfg.walkSpeed = parseFloat(q0.get("walkSpeed")) || G.cfg.walkSpeed;
-  // ?look=museum: 写真系美術館風(ライトボックス額装 + 床の映り込み)。既定はOFF。
-  // (グリッド天井は暗室で見えにくく費用対効果が低いためプリセットから除外。room.gridCeiling で個別有効化可)
+  // ?look=museum: 写真系美術館風(ライトボックス額装 + 床の映り込み + 発光グリッド天井)。既定はOFF。
   if (q0.get("look") === "museum") {
     const r = (G.cfg.room = G.cfg.room || {});
-    r.floorReflectStreaks = true; r.frameStyle = "lightbox";
+    r.floorReflectStreaks = true; r.frameStyle = "lightbox"; r.gridCeiling = true;
   }
   const lang = q0.get("lang") || G.cfg.lang || navigator.language;
   setLang(lang);
