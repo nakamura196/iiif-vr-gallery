@@ -17,6 +17,7 @@ import { setupViewerUI } from "./viewer.js";
 import { setupXR, bindXRInputSources, updateXR } from "./xr.js";
 import { setupTourUI, updateTour, isTouring } from "./tour.js";
 import { buildGalleryFromSource } from "./gallery.js";
+import { setupIndexUI } from "./index.js";
 import { setupEntranceUI, buildEntrance, buildEntranceFromCuration, selectExhibition } from "./entrance.js";
 
 init().catch((err) => {
@@ -52,6 +53,7 @@ async function init() {
   bindXRInputSources();
   setupQualityToggle();
   setupLookToggle();
+  setupIndexUI();
   setupTourUI();
 
   if (window.__DEBUG) exposeDebug();

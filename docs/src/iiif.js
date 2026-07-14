@@ -70,14 +70,15 @@ export async function resolveSource(source) {
   }
 
   if (type === "image") {
-    // 単一の通常画像。寸法は読み込み後に拾う。OSD は type:'image' で深ズーム相当。
+    // 単一の通常画像(IIIF Image Service なし)。サーバ側リサイズができないため、
+    // 3D 壁テクスチャには軽い thumbnail があればそれを使い、深ズーム(OSD)には原寸 URL を使う。
     return {
       type,
       url: source.url,
       width: source.width || null,
       height: source.height || null,
       osdTileSource: { type: "image", url: source.url },
-      thumb: () => source.url,
+      thumb: () => source.thumbUrl || source.url,
     };
   }
 
@@ -115,6 +116,46 @@ function imageServiceFromCanvas(canvas) {
     if (id) return id;
   }
   return null;
+}
+
+/**
+ * Canvas から描画用ソースを1つ取り出す。
+ * IIIF Image Service があれば深ズーム可能な {type:'iiif', id} を、
+ * 無ければ静的画像の直 URL を {type:'image', url, width, height, thumbUrl} として返す。
+ * どちらも取れなければ null。
+ */
+function canvasSource(canvas, fallbackThumb = null) {
+  const id = imageServiceFromCanvas(canvas);
+  if (id) return { type: "iiif", id };
+  const img = plainImageFromCanvas(canvas);
+  if (!img) return null;
+  return { type: "image", ...img, thumbUrl: img.thumbUrl || fallbackThumb };
+}
+
+/** service を持たない Canvas から静的画像 URL と寸法・サムネを拾う(v2/v3) */
+function plainImageFromCanvas(canvas) {
+  // v2: images[0].resource  /  v3: items[0].items[0].body
+  const v3 = canvas.items?.[0]?.items?.[0]?.body;
+  const v2 = (canvas.images || canvas.resources)?.[0]?.resource;
+  let body = v3 || v2;
+  if (Array.isArray(body)) body = body[0];
+  const url = body?.id || body?.["@id"];
+  if (!url) return null;
+  return {
+    url,
+    width: body.width || canvas.width || null,
+    height: body.height || canvas.height || null,
+    thumbUrl: thumbnailUrl(canvas),
+  };
+}
+
+/** thumbnail 配列/オブジェクトから先頭 URL を取り出す(v2/v3) */
+function thumbnailUrl(node) {
+  const t = node?.thumbnail;
+  const first = Array.isArray(t) ? t[0] : t;
+  if (!first) return null;
+  if (typeof first === "string") return first;
+  return first.id || first["@id"] || null;
 }
 
 function serviceId(svc) {
@@ -163,19 +204,20 @@ function parseManifestDoc(m, { limit = 24 } = {}) {
   const meta = extractMeta(m);
   // v2: sequences[0].canvases  /  v3: items
   const canvases = m.sequences?.[0]?.canvases || m.items || [];
+  const manThumb = thumbnailUrl(m);
   const walls = [];
   for (const c of canvases) {
-    const id = imageServiceFromCanvas(c);
-    if (!id) continue;
+    const source = canvasSource(c, manThumb);
+    if (!source) continue;
     walls.push({
       label: plainLabel(c.label) || manLabel,
       by: manLabel,
-      source: { type: "iiif", id },
+      source,
       meta,
     });
     if (walls.length >= limit) break;
   }
-  if (!walls.length) throw new Error("manifest から IIIF image service を抽出できませんでした");
+  if (!walls.length) throw new Error("manifest から画像を抽出できませんでした");
   return walls;
 }
 

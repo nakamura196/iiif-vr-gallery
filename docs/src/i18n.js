@@ -41,6 +41,9 @@ const DICT = {
     tourStop: "■ 停止",
     tourTitleFirst: "一人称視点で作品を自動で巡る映像を録画(WebM保存)",
     tourTitleThird: "アバターが歩いて作品を巡る映像を録画(WebM保存)",
+    indexOpen: "目次",
+    indexTitle: "作品一覧",
+    indexEmpty: "表示できる作品がありません",
   },
   en: {
     appTitle: "IIIF Virtual Museum",
@@ -81,6 +84,9 @@ const DICT = {
     tourStop: "■ Stop",
     tourTitleFirst: "Record a first-person auto tour of the works (saves WebM)",
     tourTitleThird: "Record a tour with the avatar walking the works (saves WebM)",
+    indexOpen: "Contents",
+    indexTitle: "All works",
+    indexEmpty: "No works to show",
   },
 };
 

@@ -4,6 +4,7 @@
 import { G, $ } from "./state.js";
 import { resolveSource, loadManifest, loadCollection, loadCuration, loadAuto } from "./iiif.js";
 import { layoutWalls, buildRoom, addArtwork } from "./room.js";
+import { buildIndex } from "./index.js";
 
 const loading = () => $("#loading");
 
@@ -46,11 +47,12 @@ export async function buildGallery(walls, { resetView = true } = {}) {
 
   loading().textContent = `画像を配置中… (0/${walls.length})`;
   let done = 0;
+  const arts = new Array(walls.length);
   await Promise.all(
     walls.map(async (w, i) => {
       try {
         const resolved = await resolveSource(w.source);
-        addArtwork(w, resolved, placements[i]);
+        arts[i] = addArtwork(w, resolved, placements[i]); // 添字を保って展示順を維持
       } catch (err) {
         console.warn(`wall ${i} (${w.label}) skip:`, err.message);
       } finally {
@@ -58,6 +60,8 @@ export async function buildGallery(walls, { resetView = true } = {}) {
       }
     })
   );
+  G.artworks = arts.filter(Boolean); // 解決できた作品を展示順で保持
+  buildIndex(); // 目次(作品一覧)を作り直す
 
   if (resetView) resetCamera();
   loading().style.display = "none";
@@ -76,6 +80,7 @@ export function resetCamera() {
 export function clearGallery() {
   G.hovered = null;
   G.pickables.length = 0;
+  G.artworks = [];
   G.pedestalR = 0;
   if (!G.galleryRoot) return;
   G.galleryRoot.traverse((o) => {

@@ -19,6 +19,7 @@ export const G = {
 
   // 作品と当たり判定
   pickables: [],
+  artworks: [], // 展示順の作品メッシュ(目次用。pickables と違い wall の並び順を保持)
   hovered: null, // いまレイが当たっている作品
   focused: null, // 拡大対象として選択中の作品(ホバーが外れても保持)
 

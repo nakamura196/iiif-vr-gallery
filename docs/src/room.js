@@ -447,6 +447,7 @@ export function addArtwork(wallCfg, resolved, place) {
 
   art.userData = { wallCfg, resolved, frame, center, normal, artH: h };
   G.pickables.push(art);
+  return art;
 }
 
 // 題名/作者をキャンバスに描いて銘板テクスチャに(フォント読み込み不要)。実物大の小さなプレート。

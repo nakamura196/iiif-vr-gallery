@@ -103,14 +103,17 @@
 
     /* モード切替ボタン */
     /* 上部の操作ボタン(共通の上品なスタイル) */
-    #mode-toggle, #quality-toggle, #entrance-back, #tour-toggle, #tour-toggle-3p, #look-toggle {
+    #mode-toggle, #quality-toggle, #entrance-back, #tour-toggle, #tour-toggle-3p, #look-toggle, #index-toggle {
       position: fixed; z-index: 20; cursor: pointer;
       background: rgba(14,15,19,.72); backdrop-filter: blur(10px);
       border: 1px solid rgba(201,164,76,.30); border-radius: 999px;
       padding: 8px 18px; font-size: 12px; letter-spacing: .14em; color: #e6e2d6;
       transition: border-color .15s, background .15s, color .15s; }
-    #mode-toggle:hover, #quality-toggle:hover, #entrance-back:hover, #tour-toggle:hover, #tour-toggle-3p:hover, #look-toggle:hover {
+    #mode-toggle:hover, #quality-toggle:hover, #entrance-back:hover, #tour-toggle:hover, #tour-toggle-3p:hover, #look-toggle:hover, #index-toggle:hover {
       border-color: #c9a44c; color: #f4efe3; background: rgba(22,24,29,.85); }
+    /* 目次ボタン: モード切替の左隣。展示入室中のみ表示。 */
+    #index-toggle { top: 16px; right: 96px; display: none; }
+    #index-toggle.show { display: block; }
     #mode-toggle { top: 16px; right: 18px; }
     #quality-toggle { top: 58px; right: 18px; display: none; padding: 6px 14px; font-size: 11px; color: #c8c2b2; }
     #quality-toggle.show { display: block; }
@@ -271,6 +274,34 @@
     #osd-panel .md .k { color: #9aa3b2; }
     #osd-panel a { color: #d8bd78; text-decoration: none; word-break: break-all; }
     #osd-panel a:hover { text-decoration: underline; }
+
+    /* 目次(作品一覧)オーバーレイ */
+    #index-overlay { position: fixed; inset: 0; z-index: 110; display: none; flex-direction: column;
+      background: rgba(8,9,11,.94); backdrop-filter: blur(8px); }
+    #index-overlay.show { display: flex; }
+    #index-head { flex: none; display: flex; align-items: center; justify-content: center; position: relative;
+      padding: 20px 16px 14px; border-bottom: 1px solid rgba(201,164,76,.18); }
+    #index-title { font-size: 17px; letter-spacing: .12em; color: #f1ece1;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif; }
+    #index-close { position: absolute; top: 12px; right: 16px; width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.15); background: rgba(12,13,16,.6); color: #eaecef; font-size: 22px;
+      line-height: 1; cursor: pointer; }
+    #index-close:hover { background: rgba(40,44,52,.9); }
+    #index-grid { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 22px;
+      display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); align-content: start; }
+    .ix-card { position: relative; cursor: pointer; padding: 0; color: #eaecef; text-align: left;
+      background: #16181d; border: 1px solid rgba(255,255,255,.10); border-radius: 12px; overflow: hidden;
+      transition: transform .15s, border-color .15s; }
+    .ix-card:hover { transform: translateY(-3px); border-color: #c9a44c; }
+    .ix-thumb { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #23262d; }
+    .ix-num { position: absolute; top: 8px; left: 8px; z-index: 2; min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 11px; background: rgba(8,9,11,.78); color: #d8bd78; font-size: 12px; line-height: 22px;
+      text-align: center; }
+    .ix-meta { padding: 9px 11px 11px; }
+    .ix-label { font-size: 13px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .ix-by { margin-top: 3px; font-size: 11px; color: #9aa3b2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #index-empty { grid-column: 1 / -1; text-align: center; color: #9aa3b2; padding: 40px 0; font-size: 14px; }
   </style>
 
   <!-- Three.js は import map 経由 (ESM)。OpenSeadragon は UMD グローバル。 -->
@@ -294,6 +325,7 @@
   <button id="tour-toggle" data-i18n="tourFirst" data-i18n-title="tourTitleFirst"></button>
   <button id="tour-toggle-3p" data-i18n="tourThird" data-i18n-title="tourTitleThird"></button>
   <button id="look-toggle" title="内装 / Interior"></button>
+  <button id="index-toggle" data-i18n="indexOpen" data-i18n-title="indexTitle">目次</button>
   <button id="entrance-back" data-i18n="back">← 入口</button>
   <div id="crosshair"></div>
   <div id="walk-prompt">
@@ -330,6 +362,15 @@
   <div id="tut-modal">
     <button id="tut-close" title="閉じる (Esc)">×</button>
     <div id="tut-frame"><div id="tut-embed"></div></div>
+  </div>
+
+  <!-- 目次(作品一覧): サムネのグリッド。クリックでその作品へ寄って拡大 -->
+  <div id="index-overlay">
+    <div id="index-head">
+      <span id="index-title" data-i18n="indexTitle">作品一覧</span>
+      <button id="index-close" title="閉じる (Esc)">×</button>
+    </div>
+    <div id="index-grid"></div>
   </div>
 
   <div id="osd-overlay">

@@ -129,6 +129,15 @@ function zoomFocused() {
   }
 }
 
+// 目次などから任意の作品を選択→拡大する。選択ハイライトを移してから zoomFocused と同じ挙動。
+export function focusAndZoom(art) {
+  if (!art) return;
+  if (G.focused && G.focused !== art) G.focused.userData.frame.material.emissive?.setHex(0x000000);
+  G.focused = art;
+  art.userData.frame.material.emissive?.setHex(0x1a1408);
+  zoomFocused();
+}
+
 export function setMode(next) {
   if (next === G.mode) return;
   // 退出処理(共通)
