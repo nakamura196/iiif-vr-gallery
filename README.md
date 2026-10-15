@@ -1,5 +1,9 @@
 # IIIF VR Gallery
 
+> **IIIF Kasane に統合しました（2026-10）。** 今後は https://kasane.ldas.jp/ja/gallery/ （English: https://kasane.ldas.jp/en/gallery/ ）を使ってください。
+> 旧サイト https://nakamura196.github.io/iiif-vr-gallery/ を開くと、`?u=` などの指定を引き継いで Kasane に移ります。
+> 開発は [nakamura196/iiif-kasane](https://github.com/nakamura196/iiif-kasane) で続けます。このリポジトリは記録として残します。
+
 任意の **IIIF**（Curation / Collection / Manifest）を、3D の仮想美術館として歩いて鑑賞できるビューア。
 壁の作品にカーソルを合わせて拡大すると、[OpenSeadragon](https://openseadragon.github.io/) で IIIF サーバのタイルを
 そのまま超高精細ズームできます。
